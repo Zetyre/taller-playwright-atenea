@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/loginPage';
 import { DashboardPage } from '../pages/dashboardPage';
 import TestData from '../data/testData.json';
+import { BackendUtils } from '../utils/backendUtils';
 
 let loginPage: LoginPage;
 let dashboardPage: DashboardPage;
@@ -20,15 +21,14 @@ test('TC-007: Verify login functionality with valid credentials', async ({ page 
     await expect(dashboardPage.dashboardTitle).toBeVisible();
 });
 
-test('TC-011: Login with backend created user', async ({ page, request }) => {
+test('TC-011: Login with backend created user', async ({ page }) => {
   const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
   const usuario = {
     ...TestData.usuarioValido,
     email: `${emailName}${Date.now()}@${emailDomain}`,
   };
-  const response = await request.post('http://localhost:6007/api/auth/signup', {
-    data: usuario,
-  });
+  const backendUtils = new BackendUtils(page);
+  const response = await backendUtils.enviarRequestDeBackend('http://localhost:6007/api/auth/signup', usuario);
   expect(response.status()).toBe(201);
 
   const loginResponsePromise = page.waitForResponse(
@@ -40,14 +40,14 @@ test('TC-011: Login with backend created user', async ({ page, request }) => {
   const loginResponseBody = await loginResponse.json();
 
   expect(loginResponse.status()).toBe(200);
-  expect(loginResponseBody).toEqual(expect.objectContaining({
-    token: expect.any(String),
-    user: expect.objectContaining({
-      id: expect.any(String),
-      firstName: usuario.firstName,
-      lastName: usuario.lastName,
-      email: usuario.email,
-    }),
+  expect(loginResponseBody).toHaveProperty('token');
+  expect(typeof loginResponseBody.token).toBe('string');
+  expect(loginResponseBody).toHaveProperty('user');
+  expect(loginResponseBody.user).toEqual(expect.objectContaining({
+    id: expect.any(String),
+    firstName: usuario.firstName,
+    lastName: usuario.lastName,
+    email: usuario.email,
   }));
   expect(loginResponseBody.token).not.toBe('');
   await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();

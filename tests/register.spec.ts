@@ -116,7 +116,9 @@ test('TC-009: Generate signup with API request', async ({ page }) => {
     email: `${emailName}${Date.now()}@${emailDomain}`,
   };
   const backendUtils = new BackendUtils(page);
-  const responseBody = await backendUtils.enviarRequestDeBackend('http://localhost:6007/api/auth/signup', usuario);
+  const response = await backendUtils.enviarRequestDeBackend('http://localhost:6007/api/auth/signup', usuario);
+  expect(response.status()).toBe(201);
+  const responseBody = await response.json();
   expect(responseBody).toEqual({
     token: expect.any(String),
     user: {

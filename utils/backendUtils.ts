@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { APIResponse, Page } from '@playwright/test';
 
 export class BackendUtils {
   readonly page: Page;
@@ -7,15 +7,13 @@ export class BackendUtils {
     this.page = page;
   }
 
-  async enviarRequestDeBackend(endpoint: string, data: object) {
-    const response = await this.page.request.post(endpoint, {
+  async enviarRequestDeBackend(endpoint: string, data: object): Promise<APIResponse> {
+    return this.page.request.post(endpoint, {
       headers: {
-        Accept: 'application/vnd.github.v3+json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       data,
     });
-    const responseBody = await response.json();
-    return responseBody;
   }
 }
