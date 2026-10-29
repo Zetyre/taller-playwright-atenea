@@ -17,5 +17,39 @@ test.beforeEach (async ({ page }) => {
 test('TC-007: Verify login functionality with valid credentials', async ({ page }) => {
     await loginPage.completeLogin(TestData.usuarioValido);
     await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
-    await expect(dashboardPage.dashboardTitle).toBeVisible();  
+    await expect(dashboardPage.dashboardTitle).toBeVisible();
+});
+
+test('TC-011: Login with backend created user', async ({ page, request }) => {
+  const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
+  const usuario = {
+    ...TestData.usuarioValido,
+    email: `${emailName}${Date.now()}@${emailDomain}`,
+  };
+  const response = await request.post('http://localhost:6007/api/auth/signup', {
+    data: usuario,
+  });
+  expect(response.status()).toBe(201);
+
+  const loginResponsePromise = page.waitForResponse(
+    response => response.url() === 'http://localhost:6007/api/auth/login'
+      && response.request().method() === 'POST',
+  );
+  await loginPage.completeLogin({ email: usuario.email, password: usuario.password });
+  const loginResponse = await loginResponsePromise;
+  const loginResponseBody = await loginResponse.json();
+
+  expect(loginResponse.status()).toBe(200);
+  expect(loginResponseBody).toEqual(expect.objectContaining({
+    token: expect.any(String),
+    user: expect.objectContaining({
+      id: expect.any(String),
+      firstName: usuario.firstName,
+      lastName: usuario.lastName,
+      email: usuario.email,
+    }),
+  }));
+  expect(loginResponseBody.token).not.toBe('');
+  await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
+  await expect(dashboardPage.dashboardTitle).toBeVisible();
 });
