@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/loginPage';
 import { DashboardPage } from '../pages/dashboardPage';
 import TestData from '../data/testData.json';
+import { BackendUtils } from '../utils/backendUtils';
 
 let loginPage: LoginPage;
 let dashboardPage: DashboardPage;
@@ -17,5 +18,31 @@ test.beforeEach (async ({ page }) => {
 test('TC-007: Verify login functionality with valid credentials', async ({ page }) => {
     await loginPage.completeLogin(TestData.usuarioValido);
     await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
-    await expect(dashboardPage.dashboardTitle).toBeVisible();  
+    await expect(dashboardPage.dashboardTitle).toBeVisible();
+});
+
+test('TC-011: Login with backend created user', async ({ page, request }) => {
+  const usuario = await BackendUtils.registerUserwithAPI(request, TestData.usuarioValido);
+
+  const loginResponsePromise = page.waitForResponse(
+    response => response.url() === 'http://localhost:6007/api/auth/login'
+      && response.request().method() === 'POST',
+  );
+  await loginPage.completeLogin({ email: usuario.email, password: usuario.password });
+  const loginResponse = await loginResponsePromise;
+  const loginResponseBody = await loginResponse.json();
+
+  expect(loginResponse.status()).toBe(200);
+  expect(loginResponseBody).toHaveProperty('token');
+  expect(typeof loginResponseBody.token).toBe('string');
+  expect(loginResponseBody).toHaveProperty('user');
+  expect(loginResponseBody.user).toEqual(expect.objectContaining({
+    id: expect.any(String),
+    firstName: TestData.usuarioValido.firstName,
+    lastName: TestData.usuarioValido.lastName,
+    email: usuario.email,
+  }));
+  expect(loginResponseBody.token).not.toBe('');
+  await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
+  await expect(dashboardPage.dashboardTitle).toBeVisible();
 });
