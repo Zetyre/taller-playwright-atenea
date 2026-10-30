@@ -21,15 +21,8 @@ test('TC-007: Verify login functionality with valid credentials', async ({ page 
     await expect(dashboardPage.dashboardTitle).toBeVisible();
 });
 
-test('TC-011: Login with backend created user', async ({ page }) => {
-  const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
-  const usuario = {
-    ...TestData.usuarioValido,
-    email: `${emailName}${Date.now()}@${emailDomain}`,
-  };
-  const backendUtils = new BackendUtils(page);
-  const response = await backendUtils.enviarRequestDeBackend('http://localhost:6007/api/auth/signup', usuario);
-  expect(response.status()).toBe(201);
+test('TC-011: Login with backend created user', async ({ page, request }) => {
+  const usuario = await BackendUtils.registerUserwithAPI(request, TestData.usuarioValido);
 
   const loginResponsePromise = page.waitForResponse(
     response => response.url() === 'http://localhost:6007/api/auth/login'
@@ -45,8 +38,8 @@ test('TC-011: Login with backend created user', async ({ page }) => {
   expect(loginResponseBody).toHaveProperty('user');
   expect(loginResponseBody.user).toEqual(expect.objectContaining({
     id: expect.any(String),
-    firstName: usuario.firstName,
-    lastName: usuario.lastName,
+    firstName: TestData.usuarioValido.firstName,
+    lastName: TestData.usuarioValido.lastName,
     email: usuario.email,
   }));
   expect(loginResponseBody.token).not.toBe('');
