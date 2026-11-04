@@ -15,6 +15,7 @@ The application under test is **not included** in this repository (it is exclude
 - **Failure simulation.** The front end's handling of a `500` response is tested with `page.route` mocking.
 - **Reusable authentication state.** A `setup` project creates fresh transaction users, creates their bank accounts, and saves their sessions (`storageState`), so transaction tests start authenticated and ready to transfer.
 - **Data-driven inputs.** Test data lives in `data/testData.json`.
+- **Reproducible randomized transfers.** Amounts remain random integers from 1 to 1,000, derived from a run/test seed recorded in the report.
 - **Cross-browser projects.** Chromium, Firefox and WebKit.
 - **CI workflow and reports.** GitHub Actions workflow and Playwright HTML report.
 
@@ -33,7 +34,9 @@ The application under test is **not included** in this repository (it is exclude
 | TC-009 | Sign-up (API) | Sign-up through the API alone |
 | TC-010 | Sign-up (mocked) | Front end behavior when the sign-up API returns `500` |
 | TC-011 | Login (UI + API) | Login with a user created through the API, and validation of the login response (`200`, token, user) |
-| n/a | Transactions | Transfer money through the API and verify both account balances; reject transfers to users without an account |
+| TC-012 | Transactions | Reject a transfer to a recipient without a bank account |
+| TC-013 | Transactions (API + UI) | Transfer a random amount and verify sender/receiver balances and the incoming transfer |
+| TC-014 | Transactions (UI) | Transfer a random amount through the UI and verify the incoming transfer |
 
 ## Project structure
 
@@ -84,21 +87,24 @@ npx playwright show-report
 
 ## GitHub Actions
 
-The Playwright workflow runs on pushes and pull requests targeting `main`, `master`, or `cicd`, and can also be started manually from the Actions tab. It starts a temporary MongoDB service, clones the Athena Bank app's `main` branch, starts the backend and frontend, seeds the login test user, and runs the Chromium, Firefox, and WebKit suites. The HTML report and test results are uploaded as workflow artifacts, including when tests fail. Non-PR runs with a generated HTML report publish it under a numbered folder on the `gh-pages` branch (for example, `report-23/`), preserving reports from previous runs. The report archive is available at [GitHub Pages](https://zetyre.github.io/taller-playwright-atenea/). In repository settings, enable Pages with **Build and deployment → Source → Deploy from a branch**, then select `gh-pages` and `/(root)`. The workflow uses its `GITHUB_TOKEN`; no personal access token secret is needed.
+The Playwright workflow runs on pushes and pull requests targeting `main`, `master`, or `cicd`, and can also be started manually from the Actions tab. It starts a temporary MongoDB service, checks out the Athena Bank app at a pinned commit, starts the backend and frontend, seeds the login test user, type-checks the test project, and runs the Chromium, Firefox, and WebKit suites. Node.js is pinned to the major version in `.nvmrc`; GitHub Actions are pinned to full commit SHAs and Dependabot checks for updates weekly.
+
+Because this repository is public, workflow artifacts are accessible to repository readers. The workflow removes browser attachments (including traces and screenshots) before uploading the HTML report, which is retained for 14 days. Only a successful run on `main` can publish a sanitized report to the `gh-pages` branch. Public copies omit Playwright attachments, and the archive keeps the 30 most recent reports. The archive is available at [GitHub Pages](https://zetyre.github.io/taller-playwright-atenea/). In repository settings, enable Pages with **Build and deployment → Source → Deploy from a branch**, then select `gh-pages` and `/(root)`. Configure the `github-pages` environment to allow deployment from `main`, and protect `main` with required pull requests and the `test` status check. The workflow uses its `GITHUB_TOKEN`; no personal access token secret is needed.
+
+The Athena Bank app revision is pinned in the workflow. Update the SHA intentionally when you want to test a newer app revision; the app's dependency lockfiles are installed with `npm ci`.
 
 ## Known limitations
 
 Documented here on purpose:
 
-- **URLs are hard-coded** (`localhost:3000` / `localhost:6007`) instead of using `baseURL` and environment variables.
 - `e2e/example.spec.ts` is Playwright's default example and will be removed.
 
 ## Roadmap
 
 - [x] Start the app in CI and publish the HTML report
-- [ ] Move URLs to `baseURL` and `.env`
+- [x] Move URLs to Playwright configuration and environment variables
 - [x] Fix the unique-email generation and stop mutating shared test data
-- [ ] Add a transaction confirmation assertion to the UI flow
+- [x] Make randomized transaction amounts reproducible from the CI run seed
 - [ ] Replace `networkidle` waits with web-first assertions
 - [ ] Add accessibility checks and more negative API tests
 - [ ] Add `npm` scripts and a status badge
