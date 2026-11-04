@@ -1,27 +1,132 @@
-name: Playwright Tests
+name: Playwright CI
+
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, cicd ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, cicd ]
+  workflow_dispatch:
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0.3
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGO_URI: mongodb://127.0.0.1:27017/athena_bank
+      JWT_SECRET: ci-only-secret
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - name: Check out test project
+        uses: actions/checkout@v4
+
+      - name: Check out Athena Bank app
+        run: git clone --depth 1 --branch main https://github.com/Atenea-Conocimientos/redux-athena-bank.git app
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/backend/package-lock.json
+            app/frontend/package-lock.json
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Install app dependencies
+        run: |
+          npm ci --prefix app/backend
+          npm ci --prefix app/frontend
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start app and run Playwright tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          backend_log="$RUNNER_TEMP/athena-backend.log"
+          frontend_log="$RUNNER_TEMP/athena-frontend.log"
+
+          npm --prefix app/backend start >"$backend_log" 2>&1 &
+          backend_pid=$!
+          npm --prefix app/frontend run dev -- --host 0.0.0.0 >"$frontend_log" 2>&1 &
+          frontend_pid=$!
+
+          cleanup() {
+            kill "$frontend_pid" "$backend_pid" 2>/dev/null || true
+            wait "$frontend_pid" "$backend_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          wait_for_service() {
+            local name="$1"
+            local url="$2"
+            local log_file="$3"
+            local pid="$4"
+
+            for attempt in {1..60}; do
+              if curl --fail --silent "$url" >/dev/null; then
+                echo "$name is ready"
+                return 0
+              fi
+              if ! kill -0 "$pid" 2>/dev/null; then
+                echo "$name exited before becoming ready"
+                cat "$log_file"
+                return 1
+              fi
+              sleep 2
+            done
+
+            echo "Timed out waiting for $name at $url"
+            cat "$log_file"
+            return 1
+          }
+
+          wait_for_service "Backend" "http://localhost:6007/" "$backend_log" "$backend_pid"
+
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+
+          const { usuarioValido } = JSON.parse(
+            await readFile('data/testData.json', 'utf8'),
+          );
+          const response = await fetch('http://localhost:6007/api/auth/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(usuarioValido),
+          });
+
+          if (response.status !== 201) {
+            throw new Error(
+              `Failed to seed the login test user: ${response.status} ${await response.text()}`,
+            );
+          }
+          NODE
+
+          wait_for_service "Frontend" "http://localhost:3000/" "$frontend_log" "$frontend_pid"
+          npx playwright test
+
+      - name: Upload Playwright reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -7,3 +7,5 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 redux-athena-bank/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

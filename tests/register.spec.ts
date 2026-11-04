@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { RegisterPage } from '../pages/registerPage';
 import TestData from '../data/testData.json';
 
@@ -47,10 +48,13 @@ test('TC-004: Verify redirection to login page after successful registration', a
 });
 
 test('TC-005: Verify successful registration with valid data', async ({ page }) => {
-  const email = TestData.usuarioValido.email.split('@')[0] + Date.now().toString() + TestData.usuarioValido.email.split('@')[1];
-  TestData.usuarioValido.email = email;
+  const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
+  const usuario = {
+    ...TestData.usuarioValido,
+    email: `${emailName}${randomUUID()}@${emailDomain}`,
+  };
   await test.step('Submit the registration form with valid user details', async () => {
-    await registerPage.completeRegistration(TestData.usuarioValido);
+    await registerPage.completeRegistration(usuario);
   });
   await test.step('Verify the success notification is displayed', async () => {
     await expect(page.getByText('Registro exitoso!')).toBeVisible();
@@ -58,15 +62,18 @@ test('TC-005: Verify successful registration with valid data', async ({ page }) 
 });
 
 test('TC-006: Verify users cannot register with an already registered email', async ({ page }) => {
-  const email = TestData.usuarioValido.email.split('@')[0] + Date.now().toString() + TestData.usuarioValido.email.split('@')[1];
-  TestData.usuarioValido.email = email;
+  const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
+  const usuario = {
+    ...TestData.usuarioValido,
+    email: `${emailName}${randomUUID()}@${emailDomain}`,
+  };
   await test.step('Register a new user with a unique email address', async () => {
-    await registerPage.completeRegistration(TestData.usuarioValido);
+    await registerPage.completeRegistration(usuario);
     await expect(page.getByText('Registro exitoso!')).toBeVisible();
   });
   await test.step('Try to register again with the same email address', async () => {
     await registerPage.visitRegisterPage();
-    await registerPage.completeRegistration(TestData.usuarioValido);
+    await registerPage.completeRegistration(usuario);
   });
   await test.step('Verify the duplicate-email error is displayed instead of success', async () => {
     await expect(page.getByText('Email already in use')).toBeVisible();
