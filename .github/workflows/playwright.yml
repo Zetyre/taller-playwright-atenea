@@ -50,8 +50,8 @@ jobs:
           npm ci --prefix app/backend
           npm ci --prefix app/frontend
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Start app and run Playwright tests
         shell: bash
