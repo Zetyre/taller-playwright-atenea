@@ -84,7 +84,7 @@ npx playwright show-report
 
 ## GitHub Actions
 
-The Playwright workflow runs on pushes and pull requests targeting `main`, `master`, or `cicd`, and can also be started manually from the Actions tab. It starts a temporary MongoDB service, clones the Athena Bank app's `main` branch, starts the backend and frontend, seeds the login test user, and runs the Chromium, Firefox, and WebKit suites. The HTML report and test results are uploaded as workflow artifacts, including when tests fail. Successful non-PR runs also deploy the HTML report to [GitHub Pages](https://zetyre.github.io/taller-playwright-atenea/). In the repository settings, enable Pages with **Build and deployment → Source → GitHub Actions**.
+The Playwright workflow runs on pushes and pull requests targeting `main`, `master`, or `cicd`, and can also be started manually from the Actions tab. It starts a temporary MongoDB service, clones the Athena Bank app's `main` branch, starts the backend and frontend, seeds the login test user, and runs the Chromium, Firefox, and WebKit suites. The HTML report and test results are uploaded as workflow artifacts, including when tests fail. Non-PR runs with a generated HTML report publish it under a numbered folder on the `gh-pages` branch (for example, `report-23/`), preserving reports from previous runs. The report archive is available at [GitHub Pages](https://zetyre.github.io/taller-playwright-atenea/). In repository settings, enable Pages with **Build and deployment → Source → Deploy from a branch**, then select `gh-pages` and `/(root)`. The workflow uses its `GITHUB_TOKEN`; no personal access token secret is needed.
 
 ## Known limitations
 

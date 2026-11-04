@@ -14,6 +14,8 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    outputs:
+      report_available: ${{ steps.report-check.outputs.available }}
     services:
       mongodb:
         image: mongo:7.0.3
@@ -123,6 +125,17 @@ jobs:
           wait_for_service "Frontend" "http://localhost:3000/" "$frontend_log" "$frontend_pid"
           npx playwright test
 
+      - name: Check for Playwright HTML report
+        id: report-check
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f playwright-report/index.html ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload Playwright reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,26 +147,74 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Upload report for GitHub Pages
-        if: success()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: playwright-report/
-
   deploy-report:
-    if: github.event_name != 'pull_request'
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      needs.test.result != 'cancelled' &&
+      needs.test.outputs.report_available == 'true'
     needs: test
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
+      contents: write
     concurrency:
-      group: github-pages
-      cancel-in-progress: true
+      group: gh-pages-reports
+      cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: https://zetyre.github.io/taller-playwright-atenea/report-${{ github.run_number }}/
     steps:
-      - name: Deploy report to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Check out repository with write access
+        uses: actions/checkout@v4
+
+      - name: Download Playwright report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: ${{ runner.temp }}/playwright-artifacts
+
+      - name: Append report to gh-pages branch
+        shell: bash
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+
+          report_source="$RUNNER_TEMP/playwright-artifacts/playwright-report"
+          if [[ ! -f "$report_source/index.html" ]]; then
+            echo "Playwright HTML report was not found in the downloaded artifact."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          pages_dir="$RUNNER_TEMP/gh-pages"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages:refs/remotes/origin/gh-pages
+            git worktree add --track -b gh-pages "$pages_dir" origin/gh-pages
+          else
+            git worktree add --orphan -b gh-pages "$pages_dir"
+          fi
+
+          report_dir="$pages_dir/report-${GITHUB_RUN_NUMBER}"
+          rm -rf -- "$report_dir"
+          mkdir -p "$report_dir"
+          cp -a "$report_source/." "$report_dir/"
+          touch "$pages_dir/.nojekyll"
+
+          {
+            printf '<!doctype html>\n<html lang="en">\n<head>\n'
+            printf '<meta charset="utf-8">\n<title>Playwright reports</title>\n'
+            printf '</head>\n<body>\n<h1>Playwright reports</h1>\n<ul>\n'
+            for report in "$pages_dir"/report-*; do
+              [[ -d "$report" ]] || continue
+              report_name="${report##*/}"
+              printf '<li><a href="./%s/">%s</a></li>\n' "$report_name" "$report_name"
+            done
+            printf '</ul>\n</body>\n</html>\n'
+          } > "$pages_dir/index.html"
+
+          git -C "$pages_dir" add -- .nojekyll index.html "report-${GITHUB_RUN_NUMBER}"
+          git -C "$pages_dir" commit -m "Publish Playwright report ${GITHUB_RUN_NUMBER}"
+          git -C "$pages_dir" push origin gh-pages
