@@ -80,7 +80,7 @@ testSendingUser('TC-013: Verify successful transaction through API and receiver 
   }));
   const senderToken = await readJwt(userSendsAuthFile);
   const receiverToken = await readJwt(userReceivesAuthFile);
-  const amount = 100;
+  const amount = Math.floor(Math.random() * 1000) + 1;
 
   const { senderAccountBefore, receiverAccountBefore } = await test.step('Read both account balances before transfer', async () => {
     const senderAccountBefore = (await readAccounts(request, senderToken))[0];
@@ -129,7 +129,7 @@ testSendingUser('TC-013: Verify successful transaction through API and receiver 
 testUiSendingUser('TC-014: Verify successful transaction through UI', async ({ browser, page }) => {
   const sender = JSON.parse(await readFile(userUiSendsDataFile, 'utf-8')) as { email: string };
   const receiver = JSON.parse(await readFile(userUiReceivesDataFile, 'utf-8')) as { email: string };
-  const amount = 100;
+  const amount = Math.floor(Math.random() * 1000) + 1;
   const uiDashboard = new DashboardPage(page);
   const sendMoneyModal = new ModalSendMoney(page);
 
