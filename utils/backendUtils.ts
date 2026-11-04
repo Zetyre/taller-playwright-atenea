@@ -1,4 +1,5 @@
 import { APIRequestContext, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 
 type UserData = {
   firstName: string;
@@ -13,7 +14,7 @@ export class BackendUtils {
     usuario: UserData,
   ): Promise<{ email: string; password: string }> {
     const [emailName, emailDomain] = usuario.email.split('@');
-    const email = `${emailName}${Date.now()}@${emailDomain}`;
+    const email = `${emailName}${randomUUID().replace(/-/g, '')}@${emailDomain}`;
     const response = await request.post('http://localhost:6007/api/auth/signup', {
       headers: {
         Accept: 'application/json',

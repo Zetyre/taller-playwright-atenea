@@ -19,11 +19,11 @@ export class ModalSendMoney {
         this.originAccountOption = page.getByRole('option', { name: '••••' })
     }
 
-    async completeandClickSendButton(userReceives: string) {
+    async completeandClickSendButton(userReceives: string, amount = '100') {
         await this.receiverEmailInput.fill(userReceives);
         await this.originAccountDropdown.click();
         await this.originAccountOption.first().click();
-        await this.inputMount.fill('100');
+        await this.inputMount.fill(amount);
         await this.sendMoneyButtton.click();
     }
 }
