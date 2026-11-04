@@ -53,9 +53,13 @@ jobs:
     - name: Install dependencies for frontend
       run: |
         cd app/frontend 
-        npm install
+        npm run dev > frontend.log 2>&1 &
       env:
         VITE_API_URL: ${{ env.VITE_API_URL }} 
 
     - name: Wait for frontend to be ready at PORT 3000
-      run: wait-on TCP:3000    
+      run: wait-on TCP:3000
+        - name: Run tests
+          run: |
+            cd app/frontend
+            npm run test    
