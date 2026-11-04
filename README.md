@@ -82,20 +82,22 @@ npx playwright test --ui                  # interactive mode
 npx playwright show-report
 ```
 
+## GitHub Actions
+
+The Playwright workflow runs on pushes and pull requests targeting `main`, `master`, or `cicd`, and can also be started manually from the Actions tab. It starts a temporary MongoDB service, clones the Athena Bank app's `main` branch, starts the backend and frontend, seeds the login test user, and runs the Chromium suite. The HTML report and test results are uploaded as workflow artifacts, including when tests fail.
+
 ## Known limitations
 
 Documented here on purpose:
 
-- **CI does not start the application yet.** The workflow installs dependencies and runs the tests, but the app has to be running for them to pass, so the pipeline needs a step that starts it (for example with Docker Compose).
 - **URLs are hard-coded** (`localhost:3000` / `localhost:6007`) instead of using `baseURL` and environment variables.
-- **TC-005 and TC-006 build their unique email incorrectly** (the `@` is dropped) and mutate the shared test data, which can cause flakiness when tests run in parallel.
 - `e2e/example.spec.ts` is Playwright's default example and will be removed.
 
 ## Roadmap
 
-- [ ] Start the app in CI and publish the HTML report
+- [x] Start the app in CI and publish the HTML report
 - [ ] Move URLs to `baseURL` and `.env`
-- [ ] Fix the unique-email generation and stop mutating shared test data
+- [x] Fix the unique-email generation and stop mutating shared test data
 - [ ] Add a transaction confirmation assertion to the UI flow
 - [ ] Replace `networkidle` waits with web-first assertions
 - [ ] Add accessibility checks and more negative API tests
