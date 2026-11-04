@@ -1,4 +1,5 @@
 import {Page, Locator} from '@playwright/test';
+import { frontendUrl } from '../utils/urls';
 
 export class LoginPage {
     readonly page: Page;
@@ -13,7 +14,7 @@ export class LoginPage {
         this.loginButton = page.getByTestId('boton-login');
     }
     async visitLoginPage() {
-        await this.page.goto('http://localhost:3000/login');
+        await this.page.goto(frontendUrl('/login'));
         await this.page.waitForLoadState('networkidle');
     }
 
