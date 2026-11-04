@@ -1,5 +1,8 @@
 name: Playwright CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ main, master, cicd ]
@@ -11,31 +14,46 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    permissions:
+      contents: read
+    outputs:
+      report_available: ${{ steps.report-check.outputs.available }}
     services:
       mongodb:
         image: mongo:7.0.3
-        ports:
-          - 27017:27017
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      MONGO_URI: mongodb://127.0.0.1:27017/athena_bank
+      HOME: /root
+      MONGO_URI: mongodb://mongodb:27017/athena_bank
       JWT_SECRET: ci-only-secret
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      API_BASE_URL: http://localhost:6007
+      PLAYWRIGHT_TEST_SEED: ${{ github.run_id }}
 
     steps:
       - name: Check out test project
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - name: Check out Athena Bank app
-        run: git clone --depth 1 --branch main https://github.com/Atenea-Conocimientos/redux-athena-bank.git app
+      - name: Check out pinned Athena Bank app
+        run: |
+          git init app
+          git -C app remote add origin https://github.com/Zetyre/redux-athena-bank.git
+          git -C app fetch --depth 1 origin ecab87e1aee435fd090a8e05b281c89331e275d0
+          git -C app checkout --detach FETCH_HEAD
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -45,13 +63,13 @@ jobs:
       - name: Install test dependencies
         run: npm ci
 
+      - name: Type-check tests
+        run: npm run typecheck
+
       - name: Install app dependencies
         run: |
           npm ci --prefix app/backend
           npm ci --prefix app/frontend
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
 
       - name: Start app and run Playwright tests
         shell: bash
@@ -96,7 +114,7 @@ jobs:
             return 1
           }
 
-          wait_for_service "Backend" "http://localhost:6007/" "$backend_log" "$backend_pid"
+          wait_for_service "Backend" "$API_BASE_URL/" "$backend_log" "$backend_pid"
 
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
@@ -104,7 +122,7 @@ jobs:
           const { usuarioValido } = JSON.parse(
             await readFile('data/testData.json', 'utf8'),
           );
-          const response = await fetch('http://localhost:6007/api/auth/signup', {
+          const response = await fetch(`${process.env.API_BASE_URL}/api/auth/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(usuarioValido),
@@ -117,16 +135,110 @@ jobs:
           }
           NODE
 
-          wait_for_service "Frontend" "http://localhost:3000/" "$frontend_log" "$frontend_pid"
-          npx playwright test
+          wait_for_service "Frontend" "$PLAYWRIGHT_BASE_URL/" "$frontend_log" "$frontend_pid"
+          npm run test:ci
+
+      - name: Remove browser attachments from public artifacts
+        if: always()
+        run: rm -rf -- playwright-report/data test-results
+
+      - name: Check for Playwright HTML report
+        id: report-check
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f playwright-report/index.html ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload Playwright reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
+          path: playwright-report/
           if-no-files-found: ignore
           retention-days: 14
+
+  deploy-report:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      needs.test.result == 'success' &&
+      needs.test.outputs.report_available == 'true'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment:
+      name: github-pages
+      url: https://zetyre.github.io/taller-playwright-atenea/
+    concurrency:
+      group: gh-pages-reports
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository with write access
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download Playwright report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: playwright-report
+          path: ${{ runner.temp }}/playwright-artifacts
+
+      - name: Append report to gh-pages branch
+        shell: bash
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+
+          report_source="$RUNNER_TEMP/playwright-artifacts/playwright-report"
+          if [[ ! -f "$report_source/index.html" ]]; then
+            echo "Playwright HTML report was not found in the downloaded artifact."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          pages_dir="$RUNNER_TEMP/gh-pages"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages:refs/remotes/origin/gh-pages
+            git worktree add --track -b gh-pages "$pages_dir" origin/gh-pages
+          else
+            git worktree add --orphan -b gh-pages "$pages_dir"
+          fi
+
+          report_dir="$pages_dir/report-${GITHUB_RUN_NUMBER}"
+          rm -rf -- "$report_dir"
+          mkdir -p "$report_dir"
+          cp -a "$report_source/." "$report_dir/"
+          rm -rf -- "$report_dir/data"
+          touch "$pages_dir/.nojekyll"
+
+          mapfile -t archived_reports < <(
+            find "$pages_dir" -maxdepth 1 -type d -name 'report-[0-9]*' -printf '%f\n' | sort -V
+          )
+          while (( ${#archived_reports[@]} > 30 )); do
+            oldest_report="${archived_reports[0]}"
+            rm -rf -- "$pages_dir/$oldest_report"
+            archived_reports=("${archived_reports[@]:1}")
+          done
+
+          {
+            printf '<!doctype html>\n<html lang="en">\n<head>\n'
+            printf '<meta charset="utf-8">\n<title>Playwright reports</title>\n'
+            printf '</head>\n<body>\n<h1>Playwright reports</h1>\n<ul>\n'
+            for report in "$pages_dir"/report-*; do
+              [[ -d "$report" ]] || continue
+              report_name="${report##*/}"
+              printf '<li><a href="./%s/">%s</a></li>\n' "$report_name" "$report_name"
+            done
+            printf '</ul>\n</body>\n</html>\n'
+          } > "$pages_dir/index.html"
+
+          git -C "$pages_dir" add -- .nojekyll index.html "report-${GITHUB_RUN_NUMBER}"
+          git -C "$pages_dir" commit -m "Publish Playwright report ${GITHUB_RUN_NUMBER}"
+          git -C "$pages_dir" push origin gh-pages

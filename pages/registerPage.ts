@@ -1,4 +1,5 @@
 import {Page, Locator} from '@playwright/test';
+import { frontendUrl } from '../utils/urls';
 
 export class RegisterPage {
     readonly page: Page;
@@ -19,7 +20,7 @@ export class RegisterPage {
         this.loginButton = page.getByTestId('boton-login-header-signup');
     }
     async visitRegisterPage() {
-        await this.page.goto('http://localhost:3000/');
+        await this.page.goto(frontendUrl('/'));
         await this.page.waitForLoadState('networkidle');
     }
 

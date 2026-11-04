@@ -3,6 +3,7 @@ import { LoginPage } from '../pages/loginPage';
 import { DashboardPage } from '../pages/dashboardPage';
 import TestData from '../data/testData.json';
 import { BackendUtils } from '../utils/backendUtils';
+import { apiUrl } from '../utils/urls';
 
 let loginPage: LoginPage;
 let dashboardPage: DashboardPage;
@@ -31,7 +32,7 @@ test('TC-011: Login with backend created user', async ({ page, request }) => {
   });
 
   const loginResponsePromise = page.waitForResponse(
-    response => response.url() === 'http://localhost:6007/api/auth/login'
+    response => response.url() === apiUrl('/api/auth/login')
       && response.request().method() === 'POST',
   );
   const loginResponseBody = await test.step('Log in with the API-created user and capture the response', async () => {

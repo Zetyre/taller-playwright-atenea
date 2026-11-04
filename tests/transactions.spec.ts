@@ -3,6 +3,9 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DashboardPage } from '../pages/dashboardPage';
 import { ModalSendMoney } from '../pages/modalSendMoney';
+import { randomUUID } from 'node:crypto';
+import { apiUrl } from '../utils/urls';
+import { seededInteger } from '../utils/testRandom';
 
 let dashboardPage: DashboardPage;
 let modalSendMoney: ModalSendMoney;
@@ -63,7 +66,7 @@ async function readJwt(storageStateFile: string): Promise<string> {
 }
 
 async function readAccounts(request: APIRequestContext, token: string) {
-  const response = await request.get('http://localhost:6007/api/accounts', {
+  const response = await request.get(apiUrl('/api/accounts'), {
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(response.ok(), `Accounts API failed with status ${response.status()}`).toBeTruthy();
@@ -80,7 +83,9 @@ testSendingUser('TC-013: Verify successful transaction through API and receiver 
   }));
   const senderToken = await readJwt(userSendsAuthFile);
   const receiverToken = await readJwt(userReceivesAuthFile);
-  const amount = Math.floor(Math.random() * 1000) + 1;
+  const seed = process.env.PLAYWRIGHT_TEST_SEED ?? randomUUID();
+  const amount = seededInteger(`${seed}:${test.info().title}`, 1, 1000);
+  test.info().annotations.push({ type: 'random-seed', description: seed });
 
   const { senderAccountBefore, receiverAccountBefore } = await test.step('Read both account balances before transfer', async () => {
     const senderAccountBefore = (await readAccounts(request, senderToken))[0];
@@ -90,7 +95,7 @@ testSendingUser('TC-013: Verify successful transaction through API and receiver 
   });
 
   await test.step(`Transfer ${amount.toFixed(2)} to the receiver through the API`, async () => {
-    const transferResponse = await request.post('http://localhost:6007/api/transactions/transfer', {
+    const transferResponse = await request.post(apiUrl('/api/transactions/transfer'), {
       headers: { Authorization: `Bearer ${senderToken}` },
       data: {
         fromAccountId: senderAccountBefore._id,
@@ -115,9 +120,11 @@ testSendingUser('TC-013: Verify successful transaction through API and receiver 
     await test.step('Verify the incoming transfer in the receiver dashboard', async () => {
       await receiverDashboard.visitDashboard();
       await expect(receiverDashboard.dashboardTitle).toBeVisible();
-      const incomingTransfer = receiverDashboard.transferListElements.filter({ hasText: sender.email });
+      const incomingTransfer = receiverDashboard.page.getByTestId('item-transaccion')
+        .filter({ hasText: sender.email });
       await expect(incomingTransfer.first()).toContainText(`Transferencia de ${sender.email}`);
-      await expect(receiverDashboard.transferAmount.first()).toContainText(amount.toFixed(2));
+      await expect(incomingTransfer.first().getByTestId('monto-transaccion'))
+        .toContainText(amount.toFixed(2));
     });
   } finally {
     await receiverContext.close();
@@ -127,7 +134,9 @@ testSendingUser('TC-013: Verify successful transaction through API and receiver 
 testUiSendingUser('TC-014: Verify successful transaction through UI', async ({ browser, page }) => {
   const sender = JSON.parse(await readFile(userUiSendsDataFile, 'utf-8')) as { email: string };
   const receiver = JSON.parse(await readFile(userUiReceivesDataFile, 'utf-8')) as { email: string };
-  const amount = Math.floor(Math.random() * 1000) + 1;
+  const seed = process.env.PLAYWRIGHT_TEST_SEED ?? randomUUID();
+  const amount = seededInteger(`${seed}:${test.info().title}`, 1, 1000);
+  test.info().annotations.push({ type: 'random-seed', description: seed });
   const uiDashboard = new DashboardPage(page);
   const sendMoneyModal = new ModalSendMoney(page);
 
@@ -138,6 +147,7 @@ testUiSendingUser('TC-014: Verify successful transaction through UI', async ({ b
   await test.step(`Send ${amount.toFixed(2)} to the receiver using the UI`, async () => {
     await uiDashboard.sendMoneyButton.click();
     await sendMoneyModal.completeandClickSendButton(receiver.email, String(amount));
+    await expect(page.getByText(`Transferencia enviada a ${receiver.email}`)).toBeVisible();
   });
 
   const receiverContext = await browser.newContext({ storageState: userUiReceivesAuthFile });
@@ -147,9 +157,11 @@ testUiSendingUser('TC-014: Verify successful transaction through UI', async ({ b
     await test.step('Verify the incoming transfer in the receiver dashboard', async () => {
       await receiverDashboard.visitDashboard();
       await expect(receiverDashboard.dashboardTitle).toBeVisible();
-      const incomingTransfer = receiverDashboard.transferListElements.filter({ hasText: sender.email });
+      const incomingTransfer = receiverDashboard.page.getByTestId('item-transaccion')
+        .filter({ hasText: sender.email });
       await expect(incomingTransfer.first()).toContainText(`Transferencia de ${sender.email}`);
-      await expect(receiverDashboard.transferAmount.filter({ hasText: amount.toFixed(2) }).first()).toBeVisible();
+      await expect(incomingTransfer.first().getByTestId('monto-transaccion'))
+        .toContainText(amount.toFixed(2));
     });
   } finally {
     await receiverContext.close();

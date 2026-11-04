@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { RegisterPage } from '../pages/registerPage';
 import TestData from '../data/testData.json';
+import { apiUrl } from '../utils/urls';
 
 let registerPage: RegisterPage;
 
@@ -43,7 +44,7 @@ test('TC-004: Verify redirection to login page after successful registration', a
     await registerPage.loginButton.click();
   });
   await test.step('Verify navigation to the login page', async () => {
-    await expect(page).toHaveURL('http://localhost:3000/login');
+    await expect(page).toHaveURL(/\/login$/);
   });
 });
 
@@ -85,10 +86,10 @@ test('TC-008: Verify successful registration with valid data while verifying the
   const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
   const usuario = {
     ...TestData.usuarioValido,
-    email: `${emailName}${Date.now()}@${emailDomain}`,
+    email: `${emailName}${randomUUID()}@${emailDomain}`,
   };
   const responsePremise = page.waitForResponse(
-    response => response.url() === 'http://localhost:6007/api/auth/signup'
+    response => response.url() === apiUrl('/api/auth/signup')
       && response.request().method() === 'POST',
   );
   await test.step('Submit the registration form with valid user details', async () => {
@@ -119,10 +120,10 @@ test('TC-009: Generate signup with API request', async ({ request }) => {
   const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
   const usuario = {
     ...TestData.usuarioValido,
-    email: `${emailName}${Date.now()}@${emailDomain}`,
+    email: `${emailName}${randomUUID()}@${emailDomain}`,
   };
   const response = await test.step('Register a user through the signup API', async () => {
-    return request.post('http://localhost:6007/api/auth/signup', {
+    return request.post(apiUrl('/api/auth/signup'), {
       data: usuario,
     });
   });
@@ -145,7 +146,7 @@ test ('TC-010: Verify front-end behavior for 500 error response during registrat
   const [emailName, emailDomain] = TestData.usuarioValido.email.split('@');
   const usuario = {
     ...TestData.usuarioValido,
-    email: `${emailName}${Date.now()}@${emailDomain}`,
+    email: `${emailName}${randomUUID()}@${emailDomain}`,
   };
   await test.step('Simulate a server error from the registration API', async () => {
     await page.route('**/api/auth/signup', async route => {

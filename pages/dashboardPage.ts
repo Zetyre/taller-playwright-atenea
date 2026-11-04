@@ -1,4 +1,5 @@
 import {Page, Locator} from '@playwright/test';
+import { frontendUrl } from '../utils/urls';
 
 export class DashboardPage {
     readonly page: Page;
@@ -17,7 +18,7 @@ export class DashboardPage {
         this.transferAmount = page.locator('[data-testid="monto-transaccion"]');
     }
     async visitLoginPage() {
-        await this.page.goto('http://localhost:3000/dashboard');
+        await this.page.goto(frontendUrl('/dashboard'));
         await this.page.waitForLoadState('networkidle');
     }
     async visitDashboard() {

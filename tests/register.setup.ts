@@ -41,7 +41,7 @@ async function createUserWithAccount(
     await expect(dashboardPage.dashboardTitle).toBeVisible();
     await dashboardPage.addAccountButton.click();
     await modalCreateAccount.selectAccountType('Ahorros');
-    await modalCreateAccount.fillMountInput('1000');
+    await modalCreateAccount.fillMountInput('10000');
     await modalCreateAccount.createAccountButton.click();
     await expect(page.getByText('Cuenta creada exitosamente')).toBeVisible();
   });
