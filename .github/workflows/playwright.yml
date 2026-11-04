@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check out Athena Bank app
-        run: git clone --depth 1 --branch main https://github.com/Atenea-Conocimientos/redux-athena-bank.git app
+        run: git clone --depth 1 --branch main https://github.com/Zetyre/redux-athena-bank.git app
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
