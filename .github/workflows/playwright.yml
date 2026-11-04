@@ -160,9 +160,6 @@ jobs:
     concurrency:
       group: gh-pages-reports
       cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: https://zetyre.github.io/taller-playwright-atenea/report-${{ github.run_number }}/
     steps:
       - name: Check out repository with write access
         uses: actions/checkout@v4
