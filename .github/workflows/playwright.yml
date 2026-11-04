@@ -30,10 +30,11 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      HOME: /root
       MONGO_URI: mongodb://mongodb:27017/athena_bank
       JWT_SECRET: ci-only-secret
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-      API_BASE_URL: http://127.0.0.1:6007
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      API_BASE_URL: http://localhost:6007
       PLAYWRIGHT_TEST_SEED: ${{ github.run_id }}
 
     steps:
