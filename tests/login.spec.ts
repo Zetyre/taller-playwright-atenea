@@ -16,33 +16,48 @@ test.beforeEach (async ({ page }) => {
 });
 
 test('TC-007: Verify login functionality with valid credentials', async ({ page }) => {
+  await test.step('Submit valid login credentials', async () => {
     await loginPage.completeLogin(TestData.usuarioValido);
+  });
+  await test.step('Verify successful login and dashboard navigation', async () => {
     await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
     await expect(dashboardPage.dashboardTitle).toBeVisible();
+  });
 });
 
 test('TC-011: Login with backend created user', async ({ page, request }) => {
-  const usuario = await BackendUtils.registerUserwithAPI(request, TestData.usuarioValido);
+  const usuario = await test.step('Create a test user through the backend API', async () => {
+    return BackendUtils.registerUserwithAPI(request, TestData.usuarioValido);
+  });
 
   const loginResponsePromise = page.waitForResponse(
     response => response.url() === 'http://localhost:6007/api/auth/login'
       && response.request().method() === 'POST',
   );
-  await loginPage.completeLogin({ email: usuario.email, password: usuario.password });
-  const loginResponse = await loginResponsePromise;
-  const loginResponseBody = await loginResponse.json();
+  const loginResponseBody = await test.step('Log in with the API-created user and capture the response', async () => {
+    await loginPage.completeLogin({ email: usuario.email, password: usuario.password });
+    const loginResponse = await loginResponsePromise;
+    expect(loginResponse.status()).toBe(200);
+    return loginResponse.json() as Promise<{
+      token: string;
+      user: { id: string; firstName: string; lastName: string; email: string };
+    }>;
+  });
 
-  expect(loginResponse.status()).toBe(200);
-  expect(loginResponseBody).toHaveProperty('token');
-  expect(typeof loginResponseBody.token).toBe('string');
-  expect(loginResponseBody).toHaveProperty('user');
-  expect(loginResponseBody.user).toEqual(expect.objectContaining({
-    id: expect.any(String),
-    firstName: TestData.usuarioValido.firstName,
-    lastName: TestData.usuarioValido.lastName,
-    email: usuario.email,
-  }));
-  expect(loginResponseBody.token).not.toBe('');
-  await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
-  await expect(dashboardPage.dashboardTitle).toBeVisible();
+  await test.step('Verify the response includes a valid token and expected user', async () => {
+    expect(loginResponseBody).toHaveProperty('token');
+    expect(typeof loginResponseBody.token).toBe('string');
+    expect(loginResponseBody).toHaveProperty('user');
+    expect(loginResponseBody.user).toEqual(expect.objectContaining({
+      id: expect.any(String),
+      firstName: TestData.usuarioValido.firstName,
+      lastName: TestData.usuarioValido.lastName,
+      email: usuario.email,
+    }));
+    expect(loginResponseBody.token).not.toBe('');
+  });
+  await test.step('Verify successful login and dashboard navigation', async () => {
+    await expect (page.getByText('Inicio de sesión exitoso')).toBeVisible();
+    await expect(dashboardPage.dashboardTitle).toBeVisible();
+  });
 });

@@ -13,7 +13,7 @@ The application under test is **not included** in this repository (it is exclude
 - **API-driven setup.** Users are created through the backend (`utils/backendUtils.ts`) instead of clicking through the UI, which keeps tests fast and independent.
 - **Network validation.** UI actions are checked against the real API response (status code, token, user payload) using `page.waitForResponse`.
 - **Failure simulation.** The front end's handling of a `500` response is tested with `page.route` mocking.
-- **Reusable authentication state.** A `setup` project logs users in once and saves their session (`storageState`), so transaction tests start already authenticated.
+- **Reusable authentication state.** A `setup` project creates fresh transaction users, creates their bank accounts, and saves their sessions (`storageState`), so transaction tests start authenticated and ready to transfer.
 - **Data-driven inputs.** Test data lives in `data/testData.json`.
 - **Cross-browser projects.** Chromium, Firefox and WebKit.
 - **CI workflow and reports.** GitHub Actions workflow and Playwright HTML report.
@@ -33,7 +33,7 @@ The application under test is **not included** in this repository (it is exclude
 | TC-009 | Sign-up (API) | Sign-up through the API alone |
 | TC-010 | Sign-up (mocked) | Front end behavior when the sign-up API returns `500` |
 | TC-011 | Login (UI + API) | Login with a user created through the API, and validation of the login response (`200`, token, user) |
-| n/a | Transactions | Send money from one user to another, using saved session state |
+| n/a | Transactions | Transfer money through the API and verify both account balances; reject transfers to users without an account |
 
 ## Project structure
 
@@ -56,7 +56,7 @@ The application under test is **not included** in this repository (it is exclude
 **Prerequisites**
 - Node.js (LTS)
 - The Athena Bank app running locally: frontend on port `3000`, backend on port `6007`, MongoDB available to the backend
-- A user matching `data/testData.json` must already exist in the app's database (used by TC-007 and by the setup that logs in the receiving user)
+- A user matching `data/testData.json` must already exist in the app's database for TC-007. Transaction tests create their own sender, receiver, and accountless recipient.
 
 **Install**
 ```bash
@@ -87,10 +87,8 @@ npx playwright show-report
 Documented here on purpose:
 
 - **CI does not start the application yet.** The workflow installs dependencies and runs the tests, but the app has to be running for them to pass, so the pipeline needs a step that starts it (for example with Docker Compose).
-- **The transaction test does not assert the result yet.** It performs the transfer but doesn't verify balances or the confirmation message.
 - **URLs are hard-coded** (`localhost:3000` / `localhost:6007`) instead of using `baseURL` and environment variables.
 - **TC-005 and TC-006 build their unique email incorrectly** (the `@` is dropped) and mutate the shared test data, which can cause flakiness when tests run in parallel.
-- **Setup order is manual.** The `setup` project must be run before the transaction tests.
 - `e2e/example.spec.ts` is Playwright's default example and will be removed.
 
 ## Roadmap
@@ -98,8 +96,7 @@ Documented here on purpose:
 - [ ] Start the app in CI and publish the HTML report
 - [ ] Move URLs to `baseURL` and `.env`
 - [ ] Fix the unique-email generation and stop mutating shared test data
-- [ ] Add assertions to the transaction flow, including balance checks through the API
-- [ ] Declare the `setup` project as a dependency of the browser projects
+- [ ] Add a transaction confirmation assertion to the UI flow
 - [ ] Replace `networkidle` waits with web-first assertions
 - [ ] Add accessibility checks and more negative API tests
 - [ ] Add `npm` scripts and a status badge

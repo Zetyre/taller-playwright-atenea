@@ -114,19 +114,23 @@ test('TC-009: Generate signup with API request', async ({ request }) => {
     ...TestData.usuarioValido,
     email: `${emailName}${Date.now()}@${emailDomain}`,
   };
-  const response = await request.post('http://localhost:6007/api/auth/signup', {
-    data: usuario,
+  const response = await test.step('Register a user through the signup API', async () => {
+    return request.post('http://localhost:6007/api/auth/signup', {
+      data: usuario,
+    });
   });
-  expect(response.status()).toBe(201);
-  const responseBody = await response.json();
-  expect(responseBody).toEqual({
-    token: expect.any(String),
-    user: {
-      id: expect.any(String),
-      firstName: usuario.firstName,
-      lastName: usuario.lastName,
-      email: usuario.email,
-    },
+  await test.step('Verify the API returns the created user and an auth token', async () => {
+    expect(response.status()).toBe(201);
+    const responseBody = await response.json();
+    expect(responseBody).toEqual({
+      token: expect.any(String),
+      user: {
+        id: expect.any(String),
+        firstName: usuario.firstName,
+        lastName: usuario.lastName,
+        email: usuario.email,
+      },
+    });
   });
 });
 
@@ -136,21 +140,21 @@ test ('TC-010: Verify front-end behavior for 500 error response during registrat
     ...TestData.usuarioValido,
     email: `${emailName}${Date.now()}@${emailDomain}`,
   };
-  await test.step('Intercept the registration API request and simulate a 500 error response', async () => {
-  await page.route('**/api/auth/signup', async route => {
-    await route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+  await test.step('Simulate a server error from the registration API', async () => {
+    await page.route('**/api/auth/signup', async route => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Internal Server Error' }),
+      });
     });
   });
 
-  await registerPage.firstNameInput.fill(usuario.firstName);
-  await registerPage.lastNameInput.fill(usuario.lastName);
-  await registerPage.emailInput.fill(usuario.email);
-  await registerPage.passwordInput.fill(usuario.password);
-  await registerPage.registerButton.click();
-
-  await expect(page.getByText('Internal Server Error')).toBeVisible();
-});
+  await test.step('Submit valid registration details', async () => {
+    await registerPage.fillRegistrationForm(usuario);
+    await registerPage.registerButton.click();
+  });
+  await test.step('Verify the server error is displayed', async () => {
+    await expect(page.getByText('Internal Server Error')).toBeVisible();
+  });
 });
