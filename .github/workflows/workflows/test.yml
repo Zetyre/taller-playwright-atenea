@@ -9,9 +9,10 @@ jobs:
     runs-on:ubuntu-latest
     
     services:
-      image: mongodb:7.0.3
-      ports:
-        - 27017:27017
+      mongo:
+        image: mongodb:7.0.3
+        ports:
+          - 27017:27017
   env:
     MONGO_URI: ${{ secrets.MONGO_URI }}
     JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -25,14 +26,14 @@ jobs:
     
     - name: Clone redux-athena-bank repository
       run: |
-        git clone git@github.com:Atenea-Conocimientos/redux-athena-bank.git
+        git clone git@github.com:Atenea-Conocimientos/redux-athena-bank.git app
     
     - name: Create .env file for backend 
       run: |
-        echo "MONGO_URI=${{ env.MONGO_URI }}" > backend/.env
-        echo "JWT_SECRET=${{ env.JWT_SECRET }}" >> backend/.env
-        echo "PORT=${{ env.PORT }}" >> backend/.env
-        echo "VITE_API_URL=${{ env.VITE_API_URL }}" >> backend/.env
+        echo "MONGO_URI=${{ env.MONGO_URI }}" > app/backend/.env
+        echo "JWT_SECRET=${{ env.JWT_SECRET }}" >> app/backend/.env
+        echo "PORT=${{ env.PORT }}" >> app/backend/.env
+        echo "VITE_API_URL=${{ env.VITE_API_URL }}" >> app/backend/.env
     
     - name: Install dependencies for backend
       run: |
