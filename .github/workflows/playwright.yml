@@ -14,6 +14,9 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
     permissions:
       contents: read
     outputs:
@@ -21,15 +24,13 @@ jobs:
     services:
       mongodb:
         image: mongo:7.0.3
-        ports:
-          - 27017:27017
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      MONGO_URI: mongodb://127.0.0.1:27017/athena_bank
+      MONGO_URI: mongodb://mongodb:27017/athena_bank
       JWT_SECRET: ci-only-secret
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       API_BASE_URL: http://127.0.0.1:6007
@@ -68,15 +69,6 @@ jobs:
         run: |
           npm ci --prefix app/backend
           npm ci --prefix app/frontend
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Start app and run Playwright tests
         shell: bash
