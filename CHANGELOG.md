@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Accessibility tests (TC-037 to TC-043): axe-core scans against WCAG 2.2 A and AA for the login, sign-up and
+  dashboard pages and both dialogs, a keyboard-only login test, and TC-043 documenting a contrast defect on the
+  sign-up page's "Iniciar sesión" link (`test.fail()`).
+- `utils/accessibility.ts`: `scanAccessibility` waits for animations to settle, attaches the axe results to the
+  report, and `expectNoViolations` fails with one readable line per violation.
+
 ## [1.0.0] - 2026-11-05
 
 First stable version of the framework.

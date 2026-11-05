@@ -34,8 +34,8 @@ export default tseslint.config(
       'playwright/no-force-option': 'error',
       'playwright/prefer-web-first-assertions': 'error',
       'playwright/no-conditional-in-test': 'error',
-      // Assertions live in fixtures and helpers (expectError, balanceOf) as well as in tests.
-      'playwright/expect-expect': ['error', { assertFunctionNames: ['expectError'] }],
+      // Assertions live in fixtures and helpers (expectError, expectNoViolations, balanceOf) as well as in tests.
+      'playwright/expect-expect': ['error', { assertFunctionNames: ['expectError', 'expectNoViolations'] }],
       // `!` on account ids created by the createUser fixture is intentional.
       '@typescript-eslint/no-non-null-assertion': 'off',
     },
