@@ -202,6 +202,67 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
         }
       },
     );
+
+    test(
+      'TC-050: Success and info notifications meet the contrast minimum',
+      knownBug(
+        'Zetyre/redux-athena-bank#8. ' +
+          'App defect (WCAG 1.4.3): toasts use the notistack default colours, white text on #43a047 (success, about ' +
+          '3.3:1) and on #2196f3 (info, about 3.1:1). Every confirmation of a completed action is hard to read.',
+      ),
+      async ({ page, createUser, loginAs, createAccountModal }) => {
+        test.fail();
+        const dashboard = await loginAs(await createUser({ initialBalance: null }));
+
+        await dashboard.addAccountButton.click();
+        await createAccountModal.createAccount('Ahorros', 100);
+        const success = page.getByRole('alert').filter({ hasText: 'Cuenta creada' });
+        await expect(success).toBeVisible();
+        await expectSufficientContrast(success, { soft: true });
+
+        await page.getByTestId('boton-congelar-cuenta').click();
+        await page.getByRole('dialog').getByRole('button', { name: 'Congelar' }).click();
+        const info = page.getByRole('alert').filter({ hasText: 'Cuenta congelada' });
+        await expect(info).toBeVisible();
+        await expectSufficientContrast(info, { soft: true });
+      },
+    );
+  });
+
+  test.describe('Forms', () => {
+    test(
+      'TC-051: Login and sign-up fields identify their purpose for autofill',
+      knownBug(
+        'Zetyre/redux-athena-bank#9. ' +
+          'App defect (WCAG 1.3.5): no field sets an autocomplete purpose, and the sign-up form sets ' +
+          'autocomplete="off", so browsers and assistive tools cannot fill in or label the user\'s own data.',
+      ),
+      async ({ page, loginPage, registerPage }) => {
+        test.fail();
+        // Read every field's autocomplete once: the attributes are static, so retrying assertions would only wait.
+        const purposes = () =>
+          page
+            .locator('form input[name]')
+            .evaluateAll(inputs =>
+              Object.fromEntries(
+                (inputs as HTMLInputElement[]).map(input => [input.name, input.getAttribute('autocomplete')]),
+              ),
+            );
+
+        await loginPage.goto();
+        await expect(loginPage.passwordInput).toBeVisible();
+        expect.soft(await purposes(), 'Login fields').toEqual({ email: 'email', password: 'current-password' });
+
+        await registerPage.goto();
+        await expect(registerPage.passwordInput).toBeVisible();
+        expect.soft(await purposes(), 'Sign-up fields').toEqual({
+          firstName: 'given-name',
+          lastName: 'family-name',
+          email: 'email',
+          password: 'new-password',
+        });
+      },
+    );
   });
 
   test.describe('Page metadata', () => {
