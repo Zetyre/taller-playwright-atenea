@@ -1,18 +1,18 @@
 {
-  "name": "taller-playwright-atenea",
+  "name": "athena-bank-playwright-tests",
   "version": "1.0.0",
   "private": true,
   "description": "E2E and API test automation for the Athena Bank demo app with Playwright and TypeScript",
   "author": "Cristian Marrero",
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Zetyre/taller-playwright-atenea.git"
+    "url": "git+https://github.com/Zetyre/athena-bank-playwright-tests.git"
   },
   "bugs": {
-    "url": "https://github.com/Zetyre/taller-playwright-atenea/issues"
+    "url": "https://github.com/Zetyre/athena-bank-playwright-tests/issues"
   },
-  "homepage": "https://github.com/Zetyre/taller-playwright-atenea#readme",
+  "homepage": "https://github.com/Zetyre/athena-bank-playwright-tests#readme",
   "type": "commonjs",
   "engines": {
     "node": ">=22"
