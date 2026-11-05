@@ -5,6 +5,8 @@ export class LoginPage {
   readonly title: Locator;
   readonly emailInput: Locator;
   readonly passwordInput: Locator;
+  /** The floating label of the password field (MUI draws it above the input). */
+  readonly passwordLabel: Locator;
   readonly loginButton: Locator;
   readonly signUpLink: Locator;
 
@@ -12,6 +14,7 @@ export class LoginPage {
     this.title = page.getByTestId('titulo-login');
     this.emailInput = page.getByLabel('Correo electrónico');
     this.passwordInput = page.getByLabel('Contraseña');
+    this.passwordLabel = page.getByTestId('input-contrasena-login').locator('label');
     this.loginButton = page.getByTestId('boton-login');
     this.signUpLink = page.getByTestId('link-registrarse-login');
   }

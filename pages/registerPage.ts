@@ -9,6 +9,9 @@ export class RegisterPage {
   readonly passwordInput: Locator;
   readonly registerButton: Locator;
   readonly headerLoginButton: Locator;
+  /** "¿Ya tienes cuenta? Iniciar sesión" under the form, and its link. */
+  readonly loginPrompt: Locator;
+  readonly loginPromptLink: Locator;
 
   constructor(readonly page: Page) {
     this.title = page.getByTestId('titulo-registro');
@@ -18,6 +21,8 @@ export class RegisterPage {
     this.passwordInput = page.getByLabel('Contraseña');
     this.registerButton = page.getByTestId('boton-registrarse');
     this.headerLoginButton = page.getByTestId('boton-login-header-signup');
+    this.loginPrompt = page.getByTestId('texto-pregunta-cuenta');
+    this.loginPromptLink = page.getByTestId('link-iniciar-sesion-signup');
   }
 
   async goto(): Promise<void> {

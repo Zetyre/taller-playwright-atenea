@@ -10,7 +10,7 @@ UI and API test automation for **Athena Bank**, a demo banking app (React + Vite
 MongoDB). The suite covers sign-up, login, sessions, accounts and money transfers, at the API layer and
 end-to-end in Chromium, Firefox and WebKit, plus automated WCAG 2.2 AA accessibility checks.
 
-- **51 test cases, 55 tests** (22 API + 33 UI × 3 browsers = 121 executions), tagged `@smoke` / `@regression`
+- **51 test cases, 67 tests** (22 API + 45 UI × 3 browsers = 157 executions), tagged `@smoke` / `@regression`
 - **Accessibility audit:** axe-core (WCAG 2.2 AA) scans of the login, sign-up and dashboard pages and the main
   dialogs, contrast measured on the rendered pixels, keyboard access, autofill purpose, page language and titles
 - **Fully parallel, no retries locally:** every test creates its own users through the API
@@ -262,8 +262,8 @@ So contrast has its own check, `measureTextContrast`. It screenshots an element 
 text made transparent, and compares the text colour with what is really painted behind it, strip by strip, so a
 gradient that turns light under white text is caught. A control test (TC-046) proves readable text passes it.
 Keyboard access, page language and page titles are checked directly, since no automated rule covers them fully.
-Each known defect is asserted in its own `test.fail()` test, which fails for the stated reason today and fails
-loudly once the defect is fixed.
+Each known defect is asserted in `test.fail()` tests, one per checked text, notification or form, so each fails
+for its stated reason today and fails loudly on its own once that part of the defect is fixed.
 
 **Retries are a signal, not a fix.** There are no retries locally and one on CI, so a flaky test is reported as
 "flaky" in the job summary instead of silently passing.

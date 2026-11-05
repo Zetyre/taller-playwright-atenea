@@ -6,6 +6,13 @@ export class DashboardPage {
   readonly sendMoneyButton: Locator;
   readonly logoutButton: Locator;
   readonly transactionItems: Locator;
+  readonly totalBalance: Locator;
+  readonly totalBalanceLabel: Locator;
+  /** Account card fields and actions. With several accounts these match every card; tests use one account. */
+  readonly accountType: Locator;
+  readonly accountBalance: Locator;
+  readonly freezeAccountButton: Locator;
+  readonly addFundsButton: Locator;
 
   constructor(readonly page: Page) {
     this.title = page.getByTestId('titulo-dashboard');
@@ -13,6 +20,12 @@ export class DashboardPage {
     this.sendMoneyButton = page.getByTestId('boton-enviar');
     this.logoutButton = page.getByTestId('boton-logout');
     this.transactionItems = page.getByTestId('item-transaccion');
+    this.totalBalance = page.getByTestId('saldo-total-dashboard');
+    this.totalBalanceLabel = page.getByTestId('saldo-total-dashboard-label');
+    this.accountType = page.getByTestId('tipo-cuenta');
+    this.accountBalance = page.getByTestId('saldo-cuenta');
+    this.freezeAccountButton = page.getByTestId('boton-congelar-cuenta');
+    this.addFundsButton = page.getByTestId('boton-agregar-fondos');
   }
 
   /**

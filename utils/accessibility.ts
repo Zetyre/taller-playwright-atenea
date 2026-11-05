@@ -84,22 +84,84 @@ const HIDE_TEXT_CSS =
   '[data-contrast-probe], [data-contrast-probe] * { color: transparent !important; ' +
   '-webkit-text-fill-color: transparent !important; caret-color: transparent !important; text-shadow: none !important; }';
 
+/** WCAG "large text": at least 24px, or at least 18.66px (14pt) and bold. Large text needs 3:1 instead of 4.5:1. */
+const LARGE_TEXT_PX = 24;
+const LARGE_BOLD_TEXT_PX = 18.66;
+const BOLD_WEIGHT = 700;
+
+const MEASUREMENT = {
+  /** Width of the vertical strips the element is split into; each strip gets its own background colour. */
+  stripWidthPx: 6,
+  /** Sum of the R, G and B differences between the two screenshots above which a pixel belongs to a glyph. */
+  glyphPixelDifference: 30,
+};
+
+type FrozenWindow = Window & {
+  __contrastProbe?: { requestAnimationFrame: typeof window.requestAnimationFrame; queued: FrameRequestCallback[] };
+};
+
+/**
+ * Pauses everything driven by requestAnimationFrame (the particle canvas, mainly), so two screenshots taken one
+ * after the other show the same background. Callbacks requested meanwhile are queued, not dropped.
+ */
+async function freezeAnimationFrames(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const frozen = window as FrozenWindow;
+    if (!frozen.__contrastProbe) {
+      const probe = {
+        requestAnimationFrame: window.requestAnimationFrame.bind(window),
+        queued: [] as FrameRequestCallback[],
+      };
+      frozen.__contrastProbe = probe;
+      window.requestAnimationFrame = callback => {
+        probe.queued.push(callback);
+        return 0;
+      };
+    }
+    // A frame requested just before the freeze still runs: wait two real frames so it has been painted.
+    const { requestAnimationFrame } = frozen.__contrastProbe;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+}
+
+/** Restores requestAnimationFrame and hands it the callbacks queued while frozen, so animations carry on. */
+async function unfreezeAnimationFrames(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const frozen = window as FrozenWindow;
+    const probe = frozen.__contrastProbe;
+    if (!probe) return;
+    delete frozen.__contrastProbe;
+    window.requestAnimationFrame = probe.requestAnimationFrame;
+    for (const callback of probe.queued) probe.requestAnimationFrame(callback);
+  });
+}
+
+/** Parses a computed colour, which browsers report as rgb() or rgba(). Fails loudly on anything else. */
+function parseRgba(color: string): [number, number, number, number] {
+  const channels = /^rgba?\(([^)]+)\)$/
+    .exec(color.trim())?.[1]
+    .split(/[\s,/]+/)
+    .filter(Boolean)
+    .map(Number);
+  if (!channels || channels.length < 3 || channels.some(Number.isNaN)) {
+    throw new Error(`Cannot measure contrast for the colour "${color}": only rgb() and rgba() are supported`);
+  }
+  const [r, g, b, alpha = 1] = channels;
+  return [r, g, b, alpha];
+}
+
 /**
  * Measures the contrast of an element's text against the pixels rendered behind it.
  *
  * Takes two screenshots of the element, with its text shown and with its text made transparent, so the second
  * one is exactly the background the text is painted on: canvas, gradient, glow and all. The element is split
- * into 6px-wide strips; in each strip that contains glyphs the background is the median colour, compared with
- * the text's CSS colour. The result is the worst strip, so white text that fades into a light end of a gradient
- * is caught. The particle canvas is frozen first, so both screenshots share the same background.
+ * into narrow vertical strips; in each strip that contains glyphs the background is the median colour, compared
+ * with the text's CSS colour. The result is the worst strip, so white text that fades into a light end of a
+ * gradient is caught. Animation frames are paused meanwhile, so both screenshots share the same background.
  */
 export async function measureTextContrast(target: Locator): Promise<ContrastResult> {
   const page = target.page();
   await waitForAnimationsToSettle(page);
-  await page.evaluate(async () => {
-    window.requestAnimationFrame = () => 0;
-    await new Promise(resolve => setTimeout(resolve, 100));
-  });
 
   const style = await target.evaluate(element => {
     const computed = getComputedStyle(element);
@@ -107,21 +169,33 @@ export async function measureTextContrast(target: Locator): Promise<ContrastResu
     return {
       text: text.trim().slice(0, 60),
       color: computed.color,
-      large:
-        parseFloat(computed.fontSize) >= 24 ||
-        (parseFloat(computed.fontSize) >= 18.66 && parseInt(computed.fontWeight, 10) >= 700),
+      fontSize: parseFloat(computed.fontSize),
+      fontWeight: parseInt(computed.fontWeight, 10),
     };
   });
+  const rgba = parseRgba(style.color);
+  const large =
+    style.fontSize >= LARGE_TEXT_PX || (style.fontSize >= LARGE_BOLD_TEXT_PX && style.fontWeight >= BOLD_WEIGHT);
 
-  const withText = await target.screenshot({ animations: 'disabled' });
-  await target.evaluate(element => element.setAttribute('data-contrast-probe', ''));
-  const hideText = await page.addStyleTag({ content: HIDE_TEXT_CSS });
-  const background = await target.screenshot({ animations: 'disabled' });
-  await hideText.evaluate(tag => (tag as Element).remove());
-  await target.evaluate(element => element.removeAttribute('data-contrast-probe'));
+  let withText: Buffer;
+  let background: Buffer;
+  await freezeAnimationFrames(page);
+  try {
+    withText = await target.screenshot({ animations: 'disabled' });
+    await target.evaluate(element => element.setAttribute('data-contrast-probe', ''));
+    const hideText = await page.addStyleTag({ content: HIDE_TEXT_CSS });
+    try {
+      background = await target.screenshot({ animations: 'disabled' });
+    } finally {
+      await hideText.evaluate(tag => (tag as Element).remove());
+      await target.evaluate(element => element.removeAttribute('data-contrast-probe'));
+    }
+  } finally {
+    await unfreezeAnimationFrames(page);
+  }
 
   const measured = await page.evaluate(
-    async ({ withText, background, color }) => {
+    async ({ withText, background, rgba, settings }) => {
       const pixels = async (base64: string) => {
         const image = new Image();
         image.src = `data:image/png;base64,${base64}`;
@@ -134,29 +208,30 @@ export async function measureTextContrast(target: Locator): Promise<ContrastResu
         return context.getImageData(0, 0, image.width, image.height);
       };
       const [fg, bg] = [await pixels(withText), await pixels(background)];
+      // WCAG relative luminance and contrast ratio.
       const channel = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const luminance = (c: number[]) => 0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2]);
       const contrast = (a: number[], b: number[]) => {
         const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
         return (high + 0.05) / (low + 0.05);
       };
-      const [r, g, b, alpha = 1] = (color.match(/[\d.]+/g) ?? []).map(Number);
+      const [r, g, b, alpha] = rgba;
       const median = (values: number[]) => values.sort((x, y) => x - y)[Math.floor(values.length / 2)];
 
       let worst = Infinity;
-      for (let stripX = 0; stripX < fg.width; stripX += 6) {
+      for (let stripX = 0; stripX < fg.width; stripX += settings.stripWidthPx) {
         const reds: number[] = [];
         const greens: number[] = [];
         const blues: number[] = [];
         let glyphPixels = 0;
-        for (let x = stripX; x < Math.min(stripX + 6, fg.width); x++) {
+        for (let x = stripX; x < Math.min(stripX + settings.stripWidthPx, fg.width); x++) {
           for (let y = 0; y < fg.height; y++) {
             const i = (y * fg.width + x) * 4;
             const difference =
               Math.abs(fg.data[i] - bg.data[i]) +
               Math.abs(fg.data[i + 1] - bg.data[i + 1]) +
               Math.abs(fg.data[i + 2] - bg.data[i + 2]);
-            if (difference > 30) glyphPixels++;
+            if (difference > settings.glyphPixelDifference) glyphPixels++;
             reds.push(bg.data[i]);
             greens.push(bg.data[i + 1]);
             blues.push(bg.data[i + 2]);
@@ -170,14 +245,14 @@ export async function measureTextContrast(target: Locator): Promise<ContrastResu
       }
       return Number.isFinite(worst) ? { ratio: worst, rendered: true } : { ratio: 1, rendered: false };
     },
-    { withText: withText.toString('base64'), background: background.toString('base64'), color: style.color },
+    { withText: withText.toString('base64'), background: background.toString('base64'), rgba, settings: MEASUREMENT },
   );
 
   return {
     text: style.text,
     color: style.color,
     ratio: Math.round(measured.ratio * 100) / 100,
-    required: style.large ? 3 : 4.5,
+    required: large ? 3 : 4.5,
     rendered: measured.rendered,
   };
 }

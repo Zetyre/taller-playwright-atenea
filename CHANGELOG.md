@@ -17,6 +17,8 @@ All notable changes to this project are documented here. The format follows
   contrast on the login, sign-up and dashboard pages (TC-044, TC-045), the "Agregar cuenta" tile not reachable by
   keyboard (TC-047), the page language (TC-048), the page titles (TC-049), notification contrast (TC-050) and
   autofill purpose (TC-051). TC-046 is a control that proves the contrast check passes readable text.
+- Each known-bug check is its own test (one per text, notification or form), so a partial fix in the app turns
+  exactly one test red instead of hiding behind the checks that still fail.
 - `docs/defects/`: annotated screenshots for every defect report (redux-athena-bank#1 to #9).
 
 ## [1.0.0] - 2026-11-05
