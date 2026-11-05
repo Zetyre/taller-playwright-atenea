@@ -12,8 +12,23 @@ end-to-end in Chromium, Firefox and WebKit.
 
 - **36 test cases, 40 tests** (22 API + 18 UI × 3 browsers = 76 executions), tagged `@smoke` / `@regression`
 - **Fully parallel, no retries locally:** every test creates its own users through the API
-- **Found a real defect** in the app: a transfer to your own account creates money ([TC-036](#known-app-defects))
+- **Found and reported two real defects** in the app, both of which create or lose money
+  ([known app defects](#known-app-defects))
 - **Every run on `main` is published:** [browse the report archive](https://zetyre.github.io/athena-bank-playwright-tests/)
+
+## Why this project
+
+This started as a Playwright workshop exercise, and I rebuilt it as the kind of framework I'd want a team to adopt.
+The goal was a suite whose result you can trust:
+
+- **No false failures.** Tests share no state, so a red run means a real problem, not a collision between tests
+  or browsers. The suite runs fully parallel with no retries locally.
+- **No false passes.** Lint rules block missing `await`s and fixed waits, tests assert outcomes instead of "page
+  loaded", and a single required check blocks merging when any browser fails.
+- **Failures that explain themselves.** Every failure keeps a trace, a screenshot and a job summary, and every
+  run on `main` lands in a public report archive.
+- **Testing that finds bugs, not just checks screens.** API-level negative and concurrency tests found two
+  money-handling defects in the app, reported as issues with root cause and a suggested fix.
 
 ## At a glance
 
@@ -25,26 +40,78 @@ end-to-end in Chromium, Firefox and WebKit.
 | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | ![Playwright HTML report listing the login and sign-up tests with browser and tag labels](docs/images/html-report.png) | ![Report archive listing recent runs with pass, fail and flaky counts](docs/images/report-archive.png) |
 
-## Quick start
+## Run it locally
 
-Prerequisites: Node.js 22 (`.nvmrc`) and the [Athena Bank app](https://github.com/Zetyre/redux-athena-bank)
-running locally, with the frontend on `http://localhost:3000`, the API on `http://localhost:6007` and MongoDB
-available to the backend.
+**Prerequisites:** Node.js 22 (see `.nvmrc`), Git, and MongoDB 7, either installed locally or in Docker.
+
+### 1. Start the app under test
+
+The [Athena Bank app](https://github.com/Zetyre/redux-athena-bank) lives in its own repository. CI tests it at a
+pinned commit, so use the same one:
 
 ```bash
+git clone https://github.com/Zetyre/redux-athena-bank.git
+cd redux-athena-bank
+git checkout ecab87e1aee435fd090a8e05b281c89331e275d0
+```
+
+Start MongoDB, unless you already have one running:
+
+```bash
+docker run -d --name athena-mongo -p 27017:27017 mongo:7.0.3
+```
+
+Create `backend/.env`:
+
+```env
+MONGO_URI=mongodb://localhost:27017/athena_bank
+JWT_SECRET=any-local-secret
+PORT=6007
+```
+
+Then start the backend and the frontend, each in its own terminal:
+
+```bash
+npm ci --prefix backend && npm --prefix backend start      # API on http://localhost:6007
+```
+
+```bash
+npm ci --prefix frontend && npm --prefix frontend run dev  # UI on http://localhost:3000
+```
+
+### 2. Install and run the tests
+
+```bash
+git clone https://github.com/Zetyre/athena-bank-playwright-tests.git
+cd athena-bank-playwright-tests
 npm ci
 npx playwright install --with-deps
-npm test               # all projects: api, chromium, firefox, webkit
-npm run test:smoke     # @smoke only
-npm run test:api       # API project only, no browser
-npm run report         # open the last HTML report
-npm run check          # type-check + lint + format check (what CI runs first)
 ```
+
+| Command                   | What it runs                                                    |
+| ------------------------- | --------------------------------------------------------------- |
+| `npm test`                | Everything: `api`, `chromium`, `firefox`, `webkit`              |
+| `npm run test:smoke`      | Only tests tagged `@smoke`                                      |
+| `npm run test:regression` | Only tests tagged `@regression`                                 |
+| `npm run test:api`        | The API project, no browser                                     |
+| `npm run test:chromium`   | API plus Chromium, the fastest full check                       |
+| `npm run report`          | Opens the last HTML report                                      |
+| `npm run check`           | Type-check, lint and format check, the same gate CI starts with |
 
 No users need to exist beforehand. Each test creates the users and accounts it needs.
 
-URLs can be overridden with `PLAYWRIGHT_BASE_URL` and `API_BASE_URL`. Set `PLAYWRIGHT_TEST_SEED` to reproduce
-the random transfer amounts of a given run; the seed is recorded in each test's annotations.
+### Configuration
+
+All settings have local defaults, so nothing needs to be set to run the suite against the app on `localhost`.
+
+| Variable               | Default                 | Purpose                                                                              |
+| ---------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| `PLAYWRIGHT_BASE_URL`  | `http://localhost:3000` | Frontend under test                                                                  |
+| `API_BASE_URL`         | `http://localhost:6007` | Backend API under test                                                               |
+| `PLAYWRIGHT_TEST_SEED` | random per run          | Reproduces the random transfer amounts of a run; recorded in each test's annotations |
+| `CI`                   | unset                   | Set by CI: enables `forbidOnly`, one retry and the CI reporters                      |
+
+The suite needs no credentials or secrets: test users are created on the fly with throwaway data.
 
 ## Architecture
 
@@ -91,6 +158,73 @@ flowchart LR
 └── .github/                     # CI workflow, Dependabot, PR template, CODEOWNERS
 ```
 
+### Tooling built for this project
+
+| Tool                                                               | What it does                                                                                        |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| [`fixtures/index.ts`](fixtures/index.ts)                           | `createUser`, `loginAs`, `openDashboardInNewContext` and `randomAmount`: setup in one line per test |
+| [`utils/athenaApi.ts`](utils/athenaApi.ts)                         | Typed client for the backend, returning raw responses so tests can assert on errors                 |
+| [`utils/testRandom.ts`](utils/testRandom.ts)                       | Seeded random numbers, so a "random" failure can be replayed exactly                                |
+| [`scripts/ci-summary.mjs`](scripts/ci-summary.mjs)                 | Turns the JSON report into the GitHub Actions job summary (passed, failed, flaky)                   |
+| [`scripts/build-report-index.mjs`](scripts/build-report-index.mjs) | Builds the GitHub Pages report archive and prunes old reports                                       |
+
+## What a test looks like
+
+An end-to-end test reads as the business scenario. Users, accounts and sessions come from fixtures, and each
+step asserts a visible outcome for both sides of the transfer:
+
+```ts
+test(
+  'TC-014: A transfer made through the UI appears for both sender and receiver',
+  { tag: '@smoke' },
+  async ({ page, loginAs, createUser, randomAmount, sendMoneyModal, openDashboardInNewContext }) => {
+    const sender = await createUser(); // fresh user with a funded account, created through the API
+    const receiver = await createUser();
+    const amount = randomAmount(1, 1000); // reproducible with PLAYWRIGHT_TEST_SEED
+    const senderDashboard = await loginAs(sender);
+
+    await test.step(`Send ${amount} to the receiver through the UI`, async () => {
+      await senderDashboard.sendMoneyButton.click();
+      await sendMoneyModal.send(receiver.email, amount);
+      await expect(page.getByText(`Transferencia enviada a ${receiver.email}`)).toBeVisible();
+    });
+
+    await test.step('Verify the incoming transfer in the receiver dashboard', async () => {
+      const receiverDashboard = await openDashboardInNewContext(receiver); // second user, second browser context
+      const incoming = receiverDashboard.transaction(`Transferencia de ${sender.email}`);
+      await expect(incoming).toHaveCount(1);
+      await expect(receiverDashboard.transactionAmount(incoming)).toContainText(amount.toFixed(2));
+    });
+  },
+);
+```
+
+API tests check the contract and that nothing moves when a request is rejected:
+
+```ts
+test(
+  'TC-030: A transfer larger than the balance is rejected and nothing moves',
+  { tag: '@regression' },
+  async ({ api, createUser }) => {
+    const sender = await createUser({ initialBalance: 50 });
+    const receiver = await createUser({ initialBalance: 0 });
+
+    const response = await api.transfer(sender.token, {
+      fromAccountId: sender.account!._id,
+      toEmail: receiver.email,
+      amount: 51,
+    });
+
+    await expectError(response, 400, 'Insufficient funds');
+    expect(await balanceOf(api, sender)).toBe(50);
+    expect(await balanceOf(api, receiver)).toBe(0);
+  },
+);
+```
+
+The full versions are in [`tests/ui/transactions.spec.ts`](tests/ui/transactions.spec.ts) and
+[`tests/api/transfers.api.spec.ts`](tests/api/transfers.api.spec.ts).
+
 ## Design decisions
 
 **Test data is created through the API, per test.** The `createUser` fixture signs a user up and opens a funded
@@ -126,9 +260,12 @@ Playwright call), `eslint-plugin-playwright`, and Prettier. TypeScript is pinned
 
 ## Known app defects
 
-| Test                | Defect                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-036 `@known-bug` | **A transfer to your own account increases the balance.** `routes/transactions.js` loads the same account twice (as sender and recipient) and saves both copies, so sending 100 to yourself turns 1,000 into 1,100. The test asserts the correct behaviour and is marked `test.fail()`, so it reports "expected to fail" today and will fail loudly once the bug is fixed, as a reminder to remove the marker. |
+Both defects are reported on the app's repository with steps to reproduce, root cause and a suggested fix.
+
+| Defect                                                                                                                                                                                                                                                                                              | Found by                                                                                                                                                                                                  | Report                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **A transfer to your own account increases the balance.** `routes/transactions.js` loads the same account twice (as sender and recipient) and saves both copies, so sending 100 to yourself turns 1,000 into 1,100.                                                                                 | TC-036 `@known-bug`. It asserts the correct behaviour and is marked `test.fail()`, so it reports "expected to fail" today and will fail loudly once the bug is fixed, as a reminder to remove the marker. | [redux-athena-bank#1](https://github.com/Zetyre/redux-athena-bank/issues/1) |
+| **Concurrent transfers all succeed, but only one updates the balances.** Five simultaneous transfers of 1,000 from a 1,000 balance all return `200` and all create transaction records (5,000 in the history), while the balances move only 1,000. The balance check and the update are not atomic. | An ad-hoc concurrency probe while investigating the first defect, reproduced 3 out of 3 times. Not yet automated in the suite.                                                                            | [redux-athena-bank#2](https://github.com/Zetyre/redux-athena-bank/issues/2) |
 
 ## CI pipeline
 
