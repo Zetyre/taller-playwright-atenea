@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athena Bank test reports</title>
+<meta name="description" content="Playwright test reports for the Athena Bank E2E and API suite.">
+<style>
+  :root { --bg: #f6f8fa; --card: #ffffff; --text: #1f2328; --muted: #59636e; --border: #d1d9e0;
+          --ok: #1a7f37; --ok-bg: #dafbe1; --bad: #cf222e; --bad-bg: #ffebe9; --warn: #9a6700; --warn-bg: #fff8c5; --link: #0969da; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --card: #151b23; --text: #f0f6fc; --muted: #9198a1; --border: #3d444d;
+            --ok: #3fb950; --ok-bg: #12261e; --bad: #f85149; --bad-bg: #2d1214; --warn: #d29922; --warn-bg: #272115; --link: #4493f8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p { margin: 0; color: var(--muted); }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .latest { padding: 16px 20px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  .pill, .count { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
+                  border: 1px solid var(--border); margin-right: 4px; }
+  .ok { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+  .bad { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
+  .warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+  .count { font-weight: 500; }
+  .links a { margin-right: 10px; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  footer { margin-top: 16px; font-size: 13px; color: var(--muted); }
+  @media (max-width: 720px) {
+    thead { display: none; }
+    tr { display: block; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    td { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border: 0; white-space: normal; }
+    td::before { content: attr(data-label); color: var(--muted); font-size: 13px; flex: none; }
+    td .v { text-align: right; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Athena Bank test reports</h1>
+      <p>Playwright E2E and API suite across Chromium, Firefox and WebKit. The last 30 runs on <code>main</code>.</p>
+    </div>
+    <p><a href="https://github.com/Zetyre/athena-bank-playwright-tests">Repository</a> · <a href="https://github.com/Zetyre/athena-bank-playwright-tests/actions">CI runs</a></p>
+  </header>
+  <section class="card latest" aria-label="Latest run">
+    <strong>Latest run #38</strong> <span class="pill ok">passed</span> <span class="count ok">76 passed</span>
+    <span style="color: var(--muted)">2026-11-05 00:53 UTC</span>
+    <a href="./report-38/">Open report →</a>
+  </section>
+  <section class="card" aria-label="All runs">
+    <table>
+      <thead><tr><th>Run</th><th>Result</th><th>Tests</th><th>Duration</th><th>Trigger</th><th>Date</th><th>Links</th></tr></thead>
+      <tbody>
+      <tr>
+        <td data-label="Run"><span class="v"><a href="./report-38/">#38</a></span></td>
+        <td data-label="Result"><span class="v"><span class="pill ok">passed</span></span></td>
+        <td data-label="Tests" class="counts"><span class="v"><span class="count ok">76 passed</span></span></td>
+        <td data-label="Duration"><span class="v"></span></td>
+        <td data-label="Trigger"><span class="v">Push to main</span></td>
+        <td data-label="Date"><span class="v">2026-11-05 00:53 UTC</span></td>
+        <td data-label="Links" class="links"><span class="v">
+          <a href="./report-38/">Report</a> <a href="https://github.com/Zetyre/athena-bank-playwright-tests/actions/runs/41944296771">CI run</a>
+           <a href="https://github.com/Zetyre/athena-bank-playwright-tests/commit/c6e452263f65ff1d21b81f739bb19fc39d870453"><code>c6e4522</code></a>
+        </span></td>
+      </tr>
+      <tr>
+        <td data-label="Run"><span class="v"><a href="./report-26/">#26</a></span></td>
+        <td data-label="Result"><span class="v"><span class="pill">unknown</span></span></td>
+        <td data-label="Tests" class="counts"><span class="v"></span></td>
+        <td data-label="Duration"><span class="v"></span></td>
+        <td data-label="Trigger"><span class="v"></span></td>
+        <td data-label="Date"><span class="v"></span></td>
+        <td data-label="Links" class="links"><span class="v">
+          <a href="./report-26/">Report</a>
+          
+        </span></td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <footer>Public reports omit traces, screenshots and videos. Full reports are kept for 7 days as workflow artifacts.</footer>
+</main>
+</body>
+</html>
