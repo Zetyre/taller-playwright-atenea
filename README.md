@@ -1,6 +1,10 @@
 # Athena Bank: E2E & API test automation (Playwright + TypeScript)
 
-[![Playwright CI](https://github.com/Zetyre/taller-playwright-atenea/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/Zetyre/taller-playwright-atenea/actions/workflows/playwright.yml)
+[![Playwright CI](https://github.com/Zetyre/athena-bank-playwright-tests/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/Zetyre/athena-bank-playwright-tests/actions/workflows/playwright.yml)
+[![Test reports](https://img.shields.io/badge/test%20reports-GitHub%20Pages-2ea44f)](https://zetyre.github.io/athena-bank-playwright-tests/)
+![Playwright](https://img.shields.io/badge/Playwright-1.64-2EAD33?logo=playwright&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 UI and API test automation for **Athena Bank**, a demo banking app (React + Vite frontend, Node/Express backend,
 MongoDB). The suite covers sign-up, login, sessions, accounts and money transfers, at the API layer and
@@ -9,6 +13,17 @@ end-to-end in Chromium, Firefox and WebKit.
 - **36 test cases, 40 tests** (22 API + 18 UI × 3 browsers = 76 executions), tagged `@smoke` / `@regression`
 - **Fully parallel, no retries locally:** every test creates its own users through the API
 - **Found a real defect** in the app: a transfer to your own account creates money ([TC-036](#known-app-defects))
+- **Every run on `main` is published:** [browse the report archive](https://zetyre.github.io/athena-bank-playwright-tests/)
+
+## At a glance
+
+| CI pipeline: quality gate, one job per browser, merged report, required `test` gate                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------- |
+| ![GitHub Actions run with the lint job, four parallel browser jobs, report merge, publish and test gate](docs/images/ci-pipeline.png) |
+
+| HTML report: every test tagged and traceable                                                                           | Report archive on GitHub Pages                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| ![Playwright HTML report listing the login and sign-up tests with browser and tag labels](docs/images/html-report.png) | ![Report archive listing recent runs with pass, fail and flaky counts](docs/images/report-archive.png) |
 
 ## Quick start
 
@@ -31,23 +46,49 @@ No users need to exist beforehand. Each test creates the users and accounts it n
 URLs can be overridden with `PLAYWRIGHT_BASE_URL` and `API_BASE_URL`. Set `PLAYWRIGHT_TEST_SEED` to reproduce
 the random transfer amounts of a given run; the seed is recorded in each test's annotations.
 
+## Architecture
+
+Tests only talk to fixtures. Fixtures build page objects, create data through the API client and authenticate
+browsers, so no test repeats setup code or knows how the app stores its session.
+
+```mermaid
+flowchart LR
+  subgraph Tests
+    UI["tests/ui<br/>chromium · firefox · webkit"]
+    API["tests/api<br/>no browser"]
+  end
+  F["fixtures/index.ts<br/>createUser · loginAs · page objects"]
+  P["pages/<br/>locators + user actions"]
+  C["utils/athenaApi.ts<br/>typed API client"]
+  UI --> F
+  API --> F
+  F --> P
+  F --> C
+  P -->|browser| FE["Athena Bank frontend"]
+  C -->|HTTP| BE["Athena Bank API"]
+  FE --> BE
+```
+
 ## Project structure
 
 ```
 .
-├── fixtures/index.ts         # Custom test fixtures: page objects, API client, createUser, loginAs, ...
-├── pages/                    # Page objects: locators and user actions, no business assertions
+├── fixtures/index.ts            # Custom test fixtures: page objects, API client, createUser, loginAs, ...
+├── pages/                       # Page objects: locators and user actions, no business assertions
 ├── tests/
-│   ├── api/                  # "api" project: contract and negative tests against the backend
-│   └── ui/                   # chromium / firefox / webkit projects: end-to-end flows
-├── types/api.ts              # Typed request/response models
+│   ├── api/                     # "api" project: contract and negative tests against the backend
+│   └── ui/                      # chromium / firefox / webkit projects: end-to-end flows
+├── types/api.ts                 # Typed request/response models
 ├── utils/
-│   ├── athenaApi.ts          # Thin API client returning raw responses
-│   ├── userFactory.ts        # Unique test users
-│   ├── testRandom.ts         # Seeded random numbers
-│   └── urls.ts               # Frontend/API base URLs from the environment
-├── scripts/ci-summary.mjs    # Writes the GitHub Actions job summary
-└── .github/workflows/        # CI pipeline
+│   ├── athenaApi.ts             # Thin API client returning raw responses
+│   ├── userFactory.ts           # Unique test users
+│   ├── testRandom.ts            # Seeded random numbers
+│   └── urls.ts                  # Frontend/API base URLs from the environment
+├── scripts/
+│   ├── ci-summary.mjs           # Writes the GitHub Actions job summary
+│   └── build-report-index.mjs   # Builds the GitHub Pages report archive
+├── docs/images/                 # Screenshots used in this README
+└── .github/                     # CI workflow, Dependabot, PR template, CODEOWNERS
 ```
 
 ## Design decisions
@@ -100,6 +141,18 @@ Playwright call), `eslint-plugin-playwright`, and Prettier. TypeScript is pinned
 | Nightly (03:00 UTC)    | Full suite on every project, then publishes the report                 |
 | Manual                 | Full suite or `@smoke`, chosen when starting the run                   |
 
+```mermaid
+flowchart LR
+  Q["Quality gate<br/>tsc · eslint · prettier · npm audit"] --> M
+  subgraph M["Test matrix (parallel)"]
+    direction TB
+    A[api] ~~~ CH[chromium] ~~~ FF[firefox] ~~~ WK[webkit]
+  end
+  M --> R["Merge reports<br/>HTML + job summary"]
+  M --> G{{"test<br/>required check"}}
+  R -->|main only| P["Publish to<br/>GitHub Pages"]
+```
+
 1. **Quality gate:** type-check, lint, format check and `npm audit` run before any browser starts.
 2. **Test matrix:** one job per project, in parallel, inside the official Playwright image. The image tag is read
    from the lockfile, so a Dependabot bump of `@playwright/test` cannot leave the browsers out of sync. Each job
@@ -107,8 +160,10 @@ Playwright call), `eslint-plugin-playwright`, and Prettier. TypeScript is pinned
    to a specific commit.
 3. **Report:** blob reports from all jobs are merged into one HTML report. A job summary lists passed, failed and
    flaky tests. The full report, with traces and screenshots, is kept as a workflow artifact for 7 days.
-4. **Publish:** on `main`, every run's report (passed or failed) goes to the
-   [GitHub Pages archive](https://zetyre.github.io/taller-playwright-atenea/) with its status and a link to the
+4. **Gate:** a single `test` job is the required status check for `main`. It fails unless the quality gate and
+   every matrix job succeeded, so branch protection never needs editing when the matrix changes.
+5. **Publish:** on `main`, every run's report (passed or failed) goes to the
+   [GitHub Pages archive](https://zetyre.github.io/athena-bank-playwright-tests/) with its status and a link to the
    run. The last 30 are kept.
 
 **Security.** Actions are pinned to commit SHAs, `GITHUB_TOKEN` is read-only except in the publish job, and
@@ -132,6 +187,11 @@ copy strips traces and screenshots; they stay in the short-lived artifact.
 ## Tech stack
 
 Playwright, TypeScript, ESLint (`typescript-eslint`, `eslint-plugin-playwright`), Prettier, GitHub Actions.
+
+## Contributing and license
+
+Changes go through pull requests (see the [PR checklist](.github/pull_request_template.md)) and are listed in the
+[changelog](CHANGELOG.md). Released under the [MIT License](LICENSE).
 
 ## Author
 
