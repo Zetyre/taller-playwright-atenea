@@ -1,31 +1,50 @@
 {
   "name": "taller-playwright-atenea",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "playwright test",
-    "test:ci": "playwright test --forbid-only --workers=1",
-    "test:chromium": "playwright test --project=chromium",
-    "test:firefox": "playwright test --project=firefox",
-    "test:webkit": "playwright test --project=webkit",
-    "typecheck": "tsc --noEmit"
-  },
+  "private": true,
+  "description": "E2E and API test automation for the Athena Bank demo app with Playwright and TypeScript",
+  "author": "Cristian Marrero",
+  "license": "ISC",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Zetyre/taller-playwright-atenea.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/Zetyre/taller-playwright-atenea/issues"
   },
   "homepage": "https://github.com/Zetyre/taller-playwright-atenea#readme",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:api": "playwright test --project=api",
+    "test:chromium": "playwright test --project=api --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run format:check"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.64.1",
     "@types/node": "^26.6.6",
-    "typescript": "^7.0.2"
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-playwright": "^2.12.2",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.72.1"
+  },
+  "overrides": {
+    "minimatch": "^11.0.4"
   }
 }

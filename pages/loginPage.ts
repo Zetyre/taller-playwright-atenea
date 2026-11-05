@@ -1,34 +1,33 @@
-import {Page, Locator} from '@playwright/test';
-import { frontendUrl } from '../utils/urls';
+import { expect, type Locator, type Page } from '@playwright/test';
+import type { Credentials } from '../types/api';
 
 export class LoginPage {
-    readonly page: Page;
-    readonly emailInput: Locator;
-    readonly passwordInput: Locator;
-    readonly loginButton: Locator;  
+  readonly title: Locator;
+  readonly emailInput: Locator;
+  readonly passwordInput: Locator;
+  readonly loginButton: Locator;
+  readonly signUpLink: Locator;
 
-    constructor(page: Page) {
-        this.page = page;
-        this.emailInput = page.locator('input[name=email]');
-        this.passwordInput = page.locator('input[name=password]');
-        this.loginButton = page.getByTestId('boton-login');
-    }
-    async visitLoginPage() {
-        await this.page.goto(frontendUrl('/login'));
-        await this.page.waitForLoadState('networkidle');
-    }
+  constructor(readonly page: Page) {
+    this.title = page.getByTestId('titulo-login');
+    this.emailInput = page.getByLabel('Correo electrónico');
+    this.passwordInput = page.getByLabel('Contraseña');
+    this.loginButton = page.getByTestId('boton-login');
+    this.signUpLink = page.getByTestId('link-registrarse-login');
+  }
 
+  async goto(): Promise<void> {
+    await this.page.goto('/login');
+    await expect(this.title).toBeVisible();
+  }
 
-   async fillLoginForm(usuario: { email: string; password: string }) {
-        await this.emailInput.fill(usuario.email);
-        await this.passwordInput.fill(usuario.password);
-   }
-    async clickLoginButton() {
-        await this.loginButton.click();
-    }
+  async fillForm(credentials: Credentials): Promise<void> {
+    await this.emailInput.fill(credentials.email);
+    await this.passwordInput.fill(credentials.password);
+  }
 
-    async completeLogin(usuario: { email: string; password: string }) {
-        await this.fillLoginForm(usuario);
-        await this.clickLoginButton();
-    }
+  async login(credentials: Credentials): Promise<void> {
+    await this.fillForm(credentials);
+    await this.loginButton.click();
+  }
 }
