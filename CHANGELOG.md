@@ -7,11 +7,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Accessibility tests (TC-037 to TC-043): axe-core scans against WCAG 2.2 A and AA for the login, sign-up and
-  dashboard pages and both dialogs, a keyboard-only login test, and TC-043 documenting a contrast defect on the
-  sign-up page's "Iniciar sesión" link (`test.fail()`).
-- `utils/accessibility.ts`: `scanAccessibility` waits for animations to settle, attaches the axe results to the
-  report, and `expectNoViolations` fails with one readable line per violation.
+- Accessibility audit (TC-037 to TC-051): axe-core scans against WCAG 2.2 A and AA for the login, sign-up and
+  dashboard pages and the create-account and send-money dialogs, a keyboard-only login test, and on-screen contrast,
+  keyboard access, autofill purpose, page language and page title checks.
+- `utils/accessibility.ts`: `scanAccessibility` waits for animations to settle and attaches the axe results to the
+  report; `measureTextContrast` and `expectSufficientContrast` measure text contrast against the pixels rendered
+  behind it, which axe cannot do over the app's particle canvas and gradients.
+- Seven accessibility defects documented as `test.fail()` known bugs: the invisible sign-up prompt (TC-043), text
+  contrast on the login, sign-up and dashboard pages (TC-044, TC-045), the "Agregar cuenta" tile not reachable by
+  keyboard (TC-047), the page language (TC-048), the page titles (TC-049), notification contrast (TC-050) and
+  autofill purpose (TC-051). TC-046 is a control that proves the contrast check passes readable text.
+- Each known-bug check is its own test (one per text, notification or form), so a partial fix in the app turns
+  exactly one test red instead of hiding behind the checks that still fail.
+- `docs/defects/`: annotated screenshots for every defect report (redux-athena-bank#1 to #9).
 
 ## [1.0.0] - 2026-11-05
 
