@@ -52,7 +52,7 @@ jobs:
         id: playwright-version
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
-  test:
+  e2e:
     name: Test (${{ matrix.project }})
     needs: quality
     runs-on: ubuntu-latest
@@ -162,8 +162,8 @@ jobs:
 
   report:
     name: Merge reports
-    needs: test
-    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
+    needs: e2e
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -203,7 +203,7 @@ jobs:
 
   publish:
     name: Publish report to GitHub Pages
-    needs: [test, report]
+    needs: [e2e, report]
     if: >-
       ${{ !cancelled() && needs.report.result == 'success'
       && (github.event_name == 'push' || github.event_name == 'schedule') && github.ref == 'refs/heads/main' }}
@@ -227,7 +227,7 @@ jobs:
         env:
           RUN_NUMBER: ${{ github.run_number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TEST_RESULT: ${{ needs.test.result }}
+          TEST_RESULT: ${{ needs.e2e.result }}
           EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
@@ -276,3 +276,29 @@ jobs:
           git -C "$pages" add -A
           git -C "$pages" commit -m "Publish Playwright report $RUN_NUMBER ($status)"
           git -C "$pages" push origin gh-pages
+
+  # The single required status check for branch protection on main.
+  # It aggregates the jobs above, so adding, renaming or sharding matrix jobs never requires
+  # changing the repository rules.
+  # `if: always()` matters: GitHub treats a *skipped* required check as passing, so without it a
+  # failed test job would skip this gate and let the pull request merge.
+  test:
+    name: test
+    needs: [quality, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Show job results
+        run: |
+          echo "quality: ${{ needs.quality.result }}"
+          echo "e2e:     ${{ needs.e2e.result }}"
+
+      - name: Fail unless every job succeeded
+        if: >-
+          ${{ contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+          || contains(needs.*.result, 'skipped') }}
+        run: |
+          echo "::error::A required job did not succeed (failed, cancelled or skipped)."
+          exit 1
