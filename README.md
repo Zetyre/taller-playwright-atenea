@@ -10,10 +10,11 @@ UI and API test automation for **Athena Bank**, a demo banking app (React + Vite
 MongoDB). The suite covers sign-up, login, sessions, accounts and money transfers, at the API layer and
 end-to-end in Chromium, Firefox and WebKit, plus automated WCAG 2.2 AA accessibility checks.
 
-- **43 test cases, 47 tests** (22 API + 25 UI × 3 browsers = 97 executions), tagged `@smoke` / `@regression`
-- **Accessibility checks on every screen and dialog** with axe-core (WCAG 2.2 AA), plus a keyboard-only login test
+- **49 test cases, 53 tests** (22 API + 31 UI × 3 browsers = 115 executions), tagged `@smoke` / `@regression`
+- **Accessibility audit on every screen and dialog:** axe-core (WCAG 2.2 AA), contrast measured on the rendered
+  pixels, keyboard access, page language and titles
 - **Fully parallel, no retries locally:** every test creates its own users through the API
-- **Found three real defects** in the app: two that create or lose money, and one accessibility failure
+- **Found seven real defects** in the app: two that create or lose money, and five accessibility failures
   ([known app defects](#known-app-defects))
 - **Every run on `main` is published:** [browse the report archive](https://zetyre.github.io/athena-bank-playwright-tests/)
 
@@ -29,7 +30,8 @@ The goal was a suite whose result you can trust:
 - **Failures that explain themselves.** Every failure keeps a trace, a screenshot and a job summary, and every
   run on `main` lands in a public report archive.
 - **Testing that finds bugs, not just checks screens.** API-level negative and concurrency tests found two
-  money-handling defects in the app, reported as issues with root cause and a suggested fix.
+  money-handling defects in the app, reported as issues with root cause and a suggested fix, and the accessibility
+  audit found five more.
 
 ## At a glance
 
@@ -77,8 +79,13 @@ npm ci --prefix backend && npm --prefix backend start      # API on http://local
 ```
 
 ```bash
-npm ci --prefix frontend && npm --prefix frontend run dev  # UI on http://localhost:3000
+npm ci --prefix frontend && npm --prefix frontend run build
+cd frontend && npx vite preview --port 3000 --strictPort  # UI on http://localhost:3000
 ```
+
+This serves a production build, the same way CI does. The dev server (`npm run dev`) also works for a quick look,
+but it serves hundreds of separate modules to each browser, and under the full parallel suite Windows can run out of
+socket buffers (`net::ERR_NO_BUFFER_SPACE`), leaving a test with a blank page.
 
 ### 2. Install and run the tests
 
@@ -148,7 +155,7 @@ flowchart LR
 │   └── ui/                      # chromium / firefox / webkit projects: end-to-end flows and accessibility
 ├── types/api.ts                 # Typed request/response models
 ├── utils/
-│   ├── accessibility.ts         # axe-core scan and readable assertion for WCAG 2.2 AA
+│   ├── accessibility.ts         # axe-core scan and on-screen contrast measurement
 │   ├── athenaApi.ts             # Thin API client returning raw responses
 │   ├── userFactory.ts           # Unique test users
 │   ├── testRandom.ts            # Seeded random numbers
@@ -162,14 +169,14 @@ flowchart LR
 
 ### Tooling built for this project
 
-| Tool                                                               | What it does                                                                                        |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| [`fixtures/index.ts`](fixtures/index.ts)                           | `createUser`, `loginAs`, `openDashboardInNewContext` and `randomAmount`: setup in one line per test |
-| [`utils/athenaApi.ts`](utils/athenaApi.ts)                         | Typed client for the backend, returning raw responses so tests can assert on errors                 |
-| [`utils/testRandom.ts`](utils/testRandom.ts)                       | Seeded random numbers, so a "random" failure can be replayed exactly                                |
-| [`utils/accessibility.ts`](utils/accessibility.ts)                 | Runs axe-core after animations settle, attaches the results and fails with one line per violation   |
-| [`scripts/ci-summary.mjs`](scripts/ci-summary.mjs)                 | Turns the JSON report into the GitHub Actions job summary (passed, failed, flaky)                   |
-| [`scripts/build-report-index.mjs`](scripts/build-report-index.mjs) | Builds the GitHub Pages report archive and prunes old reports                                       |
+| Tool                                                               | What it does                                                                                                     |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| [`fixtures/index.ts`](fixtures/index.ts)                           | `createUser`, `loginAs`, `openDashboardInNewContext` and `randomAmount`: setup in one line per test              |
+| [`utils/athenaApi.ts`](utils/athenaApi.ts)                         | Typed client for the backend, returning raw responses so tests can assert on errors                              |
+| [`utils/testRandom.ts`](utils/testRandom.ts)                       | Seeded random numbers, so a "random" failure can be replayed exactly                                             |
+| [`utils/accessibility.ts`](utils/accessibility.ts)                 | Runs axe-core after animations settle, and measures text contrast against the pixels actually rendered behind it |
+| [`scripts/ci-summary.mjs`](scripts/ci-summary.mjs)                 | Turns the JSON report into the GitHub Actions job summary (passed, failed, flaky)                                |
+| [`scripts/build-report-index.mjs`](scripts/build-report-index.mjs) | Builds the GitHub Pages report archive and prunes old reports                                                    |
 
 ## What a test looks like
 
@@ -245,11 +252,16 @@ login bugs from failing unrelated tests.
 `DashboardPage.goto()` waits for the dashboard's own data requests and asserts they succeeded, because the app
 loads accounts and transactions only once, on mount.
 
-**Accessibility is checked automatically, and known defects stay visible.** Each screen and dialog is scanned with
-axe-core against WCAG 2.2 A and AA rules. The scan waits for animations to finish, because MUI dialogs fade in and a
-scan taken mid-fade reports false contrast failures. A known defect is excluded from its page's scan and asserted
-in its own `test.fail()` test, so a new violation on that page still fails the build. Automated rules catch only
-part of WCAG, so keyboard behaviour is covered by its own test.
+**Accessibility is audited in layers, because one tool is not enough.** axe-core scans each screen and dialog
+against WCAG 2.2 A and AA rules, after animations finish (a scan taken while a MUI dialog fades in reports false
+contrast failures). But this app draws an animated particle canvas behind everything, and axe cannot see canvas
+pixels: it lists almost every text as "needs review" and, for one link, measured it against the wrong background.
+So contrast has its own check, `measureTextContrast`. It screenshots an element with its text shown and with its
+text made transparent, and compares the text colour with what is really painted behind it, strip by strip, so a
+gradient that turns light under white text is caught. A control test (TC-046) proves readable text passes it.
+Keyboard access, page language and page titles are checked directly, since no automated rule covers them fully.
+Each known defect is asserted in its own `test.fail()` test, which fails for the stated reason today and fails
+loudly once the defect is fixed.
 
 **Retries are a signal, not a fix.** There are no retries locally and one on CI, so a flaky test is reported as
 "flaky" in the job summary instead of silently passing.
@@ -260,23 +272,28 @@ Playwright call), `eslint-plugin-playwright`, and Prettier. TypeScript is pinned
 
 ## Test coverage
 
-| Area            | UI                                                                                                                                                | API                                                                                                                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-up         | Form fields and enabled state, success, duplicate email, request/response contract, mocked 500 (TC-001 to TC-008, TC-010)                         | Success contract, duplicate email (409), each missing field (400) (TC-009, TC-020, TC-021)                                                                                                                      |
-| Login & session | Valid login, wrong password, login response contract, route guard, logout (TC-007, TC-011, TC-015 to TC-017)                                      | Valid login, wrong password and unknown email (same 401), missing password (TC-022 to TC-025)                                                                                                                   |
-| Accounts        | Open an account from the dashboard (TC-019)                                                                                                       | Created account and balance, missing or invalid token (TC-026 to TC-028)                                                                                                                                        |
-| Transfers       | Recipient without an account, client-side balance check, API transfer seen by receiver, UI transfer seen by both users (TC-012 to TC-014, TC-018) | Exact debit/credit, insufficient funds with no money moved, zero/negative amounts, unknown recipient, recipient without an account, spending someone else's account, no token, self-transfer (TC-029 to TC-036) |
-| Accessibility   | axe-core WCAG 2.2 AA scans of login, sign-up, dashboard and both dialogs; keyboard-only login; sign-up link contrast (TC-037 to TC-043)           | (UI only)                                                                                                                                                                                                       |
+| Area            | UI                                                                                                                                                                           | API                                                                                                                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-up         | Form fields and enabled state, success, duplicate email, request/response contract, mocked 500 (TC-001 to TC-008, TC-010)                                                    | Success contract, duplicate email (409), each missing field (400) (TC-009, TC-020, TC-021)                                                                                                                      |
+| Login & session | Valid login, wrong password, login response contract, route guard, logout (TC-007, TC-011, TC-015 to TC-017)                                                                 | Valid login, wrong password and unknown email (same 401), missing password (TC-022 to TC-025)                                                                                                                   |
+| Accounts        | Open an account from the dashboard (TC-019)                                                                                                                                  | Created account and balance, missing or invalid token (TC-026 to TC-028)                                                                                                                                        |
+| Transfers       | Recipient without an account, client-side balance check, API transfer seen by receiver, UI transfer seen by both users (TC-012 to TC-014, TC-018)                            | Exact debit/credit, insufficient funds with no money moved, zero/negative amounts, unknown recipient, recipient without an account, spending someone else's account, no token, self-transfer (TC-029 to TC-036) |
+| Accessibility   | axe-core WCAG 2.2 AA scans of every screen and dialog, keyboard-only login, on-screen contrast, keyboard access to every action, page language and titles (TC-037 to TC-049) | (UI only)                                                                                                                                                                                                       |
 
 ## Known app defects
 
-The money defects are reported on the app's repository with steps to reproduce, root cause and a suggested fix.
+Each defect has a `@known-bug` test that asserts the correct behaviour and is marked `test.fail()`. The money
+defects are reported on the app's repository with steps to reproduce, root cause and a suggested fix.
 
-| Defect                                                                                                                                                                                                                                                                                              | Found by                                                                                                                                                                                                  | Report                                                                      |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **A transfer to your own account increases the balance.** `routes/transactions.js` loads the same account twice (as sender and recipient) and saves both copies, so sending 100 to yourself turns 1,000 into 1,100.                                                                                 | TC-036 `@known-bug`. It asserts the correct behaviour and is marked `test.fail()`, so it reports "expected to fail" today and will fail loudly once the bug is fixed, as a reminder to remove the marker. | [redux-athena-bank#1](https://github.com/Zetyre/redux-athena-bank/issues/1) |
-| **Concurrent transfers all succeed, but only one updates the balances.** Five simultaneous transfers of 1,000 from a 1,000 balance all return `200` and all create transaction records (5,000 in the history), while the balances move only 1,000. The balance check and the update are not atomic. | An ad-hoc concurrency probe while investigating the first defect, reproduced 3 out of 3 times. Not yet automated in the suite.                                                                            | [redux-athena-bank#2](https://github.com/Zetyre/redux-athena-bank/issues/2) |
-| **The "Iniciar sesión" link on the sign-up page fails WCAG contrast.** It uses `#646cff` on white, a ratio of 4.09:1; WCAG 1.4.3 requires 4.5:1 for normal-size text, so low-vision users may not be able to read it.                                                                               | TC-043 `@known-bug`, found by the axe-core scan of the sign-up page. Marked `test.fail()` like TC-036.                                                                                                    | Not filed yet                                                               |
+| Defect                                                                                                                                                                                                                                                                                                                                              | Found by                                                                                                                                                                                                  | Report                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **A transfer to your own account increases the balance.** `routes/transactions.js` loads the same account twice (as sender and recipient) and saves both copies, so sending 100 to yourself turns 1,000 into 1,100.                                                                                                                                 | TC-036 `@known-bug`. It asserts the correct behaviour and is marked `test.fail()`, so it reports "expected to fail" today and will fail loudly once the bug is fixed, as a reminder to remove the marker. | [redux-athena-bank#1](https://github.com/Zetyre/redux-athena-bank/issues/1) |
+| **Concurrent transfers all succeed, but only one updates the balances.** Five simultaneous transfers of 1,000 from a 1,000 balance all return `200` and all create transaction records (5,000 in the history), while the balances move only 1,000. The balance check and the update are not atomic.                                                 | An ad-hoc concurrency probe while investigating the first defect, reproduced 3 out of 3 times. Not yet automated in the suite.                                                                            | [redux-athena-bank#2](https://github.com/Zetyre/redux-athena-bank/issues/2) |
+| **The sign-up page's "¿Ya tienes cuenta? Iniciar sesión" prompt is invisible.** It sits outside the form card, beneath the fixed particle canvas, so it is never painted; the link still takes focus and clicks, unseen. It also makes the page 30px wider than a 320px screen. WCAG 1.4.3, 2.4.7, 1.4.10.                                          | TC-043. axe flagged the link with a 4.09:1 ratio against white, which is the wrong background; checking the rendered pixels showed the text is not drawn at all.                                          | Not filed yet                                                               |
+| **Several texts fail contrast.** White text over the cyan end of the blue-to-cyan buttons (about 2.4:1 on login and sign-up, 1.7:1 on "Agregar fondos"), the focused field label in MUI default blue (3.7:1), the account card's type and balance on teal (1.7:1 and 3.5:1), and green and red transaction rows (3.5:1). WCAG 1.4.3 requires 4.5:1. | TC-044 and TC-045, measured on screen in all three browsers.                                                                                                                                              | Not filed yet                                                               |
+| **"Agregar cuenta" cannot be used with a keyboard.** The tile is a `<div>` with a click handler and no `tabindex` or role, so Tab skips it and screen readers do not announce it as a control. WCAG 2.1.1, 4.1.2.                                                                                                                                   | TC-047                                                                                                                                                                                                    | Not filed yet                                                               |
+| **The page language is English, but the interface is Spanish.** `index.html` keeps `<html lang="en">`, so screen readers use English pronunciation. WCAG 3.1.1.                                                                                                                                                                                     | TC-048                                                                                                                                                                                                    | Not filed yet                                                               |
+| **Every page is titled "Vite + React + TS".** The Vite template title was never replaced, so tabs, history and screen readers cannot tell pages apart. WCAG 2.4.2.                                                                                                                                                                                  | TC-049                                                                                                                                                                                                    | Not filed yet                                                               |
 
 ## CI pipeline
 
