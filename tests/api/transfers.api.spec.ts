@@ -2,6 +2,7 @@ import type { APIResponse } from '@playwright/test';
 import { expect, test } from '../../fixtures';
 import type { Account, BankUser, ErrorResponse } from '../../types/api';
 import type { AthenaApi } from '../../utils/athenaApi';
+import { knownBug } from '../../utils/knownBug';
 import { buildUser } from '../../utils/userFactory';
 
 async function balanceOf(api: AthenaApi, user: BankUser): Promise<number> {
@@ -133,15 +134,13 @@ test.describe('Transfers API', () => {
 
   test(
     'TC-036: A transfer to your own account does not change the balance',
-    {
-      tag: ['@regression', '@known-bug'],
-      annotation: {
-        type: 'issue',
-        description:
-          'App defect: routes/transactions.js loads the same account twice as sender and recipient and saves both, ' +
-          'so a self-transfer of X credits the account by X. Remove test.fail() once the backend rejects self-transfers.',
-      },
-    },
+    knownBug({
+      issue: 'Zetyre/redux-athena-bank#1',
+      summary:
+        'App defect: routes/transactions.js loads the same account twice as sender and recipient and saves both, ' +
+        'so a self-transfer of X credits the account by X.',
+      fails: /Expected: 1000\s+Received: 1100/,
+    }),
     async ({ api, createUser }) => {
       test.fail();
       const user = await createUser({ initialBalance: 1000 });

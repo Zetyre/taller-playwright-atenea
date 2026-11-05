@@ -187,10 +187,13 @@ jobs:
       - name: Merge into one HTML report
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
-        run: npx playwright merge-reports --reporter html,json ./all-blob-reports
+          KNOWN_DEFECTS_MARKDOWN: known-defects.md
+        run: npx playwright merge-reports --reporter html,json,./reporters/known-defects.ts ./all-blob-reports
 
       - name: Write the job summary
-        run: node scripts/ci-summary.mjs results.json >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          node scripts/ci-summary.mjs results.json >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f known-defects.md ]]; then cat known-defects.md >> "$GITHUB_STEP_SUMMARY"; fi
 
       - name: Save run counts for the report archive
         run: node -e "const {stats}=require('./results.json');require('fs').writeFileSync('playwright-report/run-stats.json',JSON.stringify(stats))"

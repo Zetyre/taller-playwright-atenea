@@ -152,6 +152,7 @@ flowchart LR
 ├── docs/defects/                # Annotated screenshots attached to the defect reports
 ├── fixtures/index.ts            # Custom test fixtures: page objects, API client, createUser, loginAs, ...
 ├── pages/                       # Page objects: locators and user actions, no business assertions
+├── reporters/known-defects.ts   # Lists open known defects and fails a run when one fails for the wrong reason
 ├── tests/
 │   ├── api/                     # "api" project: contract and negative tests against the backend
 │   └── ui/                      # chromium / firefox / webkit projects: end-to-end flows and accessibility
@@ -159,6 +160,7 @@ flowchart LR
 ├── utils/
 │   ├── accessibility.ts         # axe-core scan and on-screen contrast measurement
 │   ├── athenaApi.ts             # Thin API client returning raw responses
+│   ├── knownBug.ts              # knownBug(): issue, summary and expected failure of a known-bug test
 │   ├── userFactory.ts           # Unique test users
 │   ├── testRandom.ts            # Seeded random numbers
 │   └── urls.ts                  # Frontend/API base URLs from the environment
@@ -171,14 +173,15 @@ flowchart LR
 
 ### Tooling built for this project
 
-| Tool                                                               | What it does                                                                                                     |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| [`fixtures/index.ts`](fixtures/index.ts)                           | `createUser`, `loginAs`, `openDashboardInNewContext` and `randomAmount`: setup in one line per test              |
-| [`utils/athenaApi.ts`](utils/athenaApi.ts)                         | Typed client for the backend, returning raw responses so tests can assert on errors                              |
-| [`utils/testRandom.ts`](utils/testRandom.ts)                       | Seeded random numbers, so a "random" failure can be replayed exactly                                             |
-| [`utils/accessibility.ts`](utils/accessibility.ts)                 | Runs axe-core after animations settle, and measures text contrast against the pixels actually rendered behind it |
-| [`scripts/ci-summary.mjs`](scripts/ci-summary.mjs)                 | Turns the JSON report into the GitHub Actions job summary (passed, failed, flaky)                                |
-| [`scripts/build-report-index.mjs`](scripts/build-report-index.mjs) | Builds the GitHub Pages report archive and prunes old reports                                                    |
+| Tool                                                               | What it does                                                                                                       |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [`fixtures/index.ts`](fixtures/index.ts)                           | `createUser`, `loginAs`, `openDashboardInNewContext` and `randomAmount`: setup in one line per test                |
+| [`utils/athenaApi.ts`](utils/athenaApi.ts)                         | Typed client for the backend, returning raw responses so tests can assert on errors                                |
+| [`utils/testRandom.ts`](utils/testRandom.ts)                       | Seeded random numbers, so a "random" failure can be replayed exactly                                               |
+| [`utils/accessibility.ts`](utils/accessibility.ts)                 | Runs axe-core after animations settle, and measures text contrast against the pixels actually rendered behind it   |
+| [`reporters/known-defects.ts`](reporters/known-defects.ts)         | Lists known defects still present by issue, and fails the run when a known-bug test fails for an undeclared reason |
+| [`scripts/ci-summary.mjs`](scripts/ci-summary.mjs)                 | Turns the JSON report into the GitHub Actions job summary (passed, known defects, failed, flaky)                   |
+| [`scripts/build-report-index.mjs`](scripts/build-report-index.mjs) | Builds the GitHub Pages report archive and prunes old reports                                                      |
 
 ## What a test looks like
 
@@ -265,6 +268,13 @@ Keyboard access, page language and page titles are checked directly, since no au
 Each known defect is asserted in `test.fail()` tests, one per checked text, notification or form, so each fails
 for its stated reason today and fails loudly on its own once that part of the defect is fixed.
 
+**A known bug must fail for the right reason.** Playwright counts a `test.fail()` test that fails as passed, so
+a known-bug test broken by an unrelated selector or timeout would look fine, and the summary would hide how many
+defects are still open. Every known-bug test therefore declares its expected failure with `knownBug()`, for
+example the start of the text and "has a contrast ratio of", and the
+[known-defects reporter](reporters/known-defects.ts) fails the run when a test fails with any other error. It
+also lists the open defects by issue in the terminal and in the job summary, apart from real passes.
+
 **Retries are a signal, not a fix.** There are no retries locally and one on CI, so a flaky test is reported as
 "flaky" in the job summary instead of silently passing.
 
@@ -328,8 +338,8 @@ flowchart LR
    from the lockfile, so a Dependabot bump of `@playwright/test` cannot leave the browsers out of sync. Each job
    starts MongoDB, the backend and a **production build** of the frontend (`vite preview`), with the app pinned
    to a specific commit.
-3. **Report:** blob reports from all jobs are merged into one HTML report. A job summary lists passed, failed and
-   flaky tests. The full report, with traces and screenshots, is kept as a workflow artifact for 7 days.
+3. **Report:** blob reports from all jobs are merged into one HTML report. A job summary lists passed tests, known
+   defects still present (by issue), failed and flaky tests. The full report, with traces and screenshots, is kept as a workflow artifact for 7 days.
 4. **Gate:** a single `test` job is the required status check for `main`. It fails unless the quality gate and
    every matrix job succeeded, so branch protection never needs editing when the matrix changes.
 5. **Publish:** on `main`, every run's report (passed or failed) goes to the

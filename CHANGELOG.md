@@ -20,6 +20,11 @@ All notable changes to this project are documented here. The format follows
 - Each known-bug check is its own test (one per text, notification or form), so a partial fix in the app turns
   exactly one test red instead of hiding behind the checks that still fail.
 - `docs/defects/`: annotated screenshots for every defect report (redux-athena-bank#1 to #9).
+- Known-defects reporter (`reporters/known-defects.ts`): lists the known defects still present by issue, in the
+  terminal and the CI job summary, and fails the run when a `@known-bug` test fails for a reason other than the
+  one it declares. `utils/knownBug.ts` provides `knownBug()`, which every known-bug test, TC-036 included, now
+  uses to declare its issue and expected failure.
+- The CI job summary counts known defects (expected failures) apart from passed tests.
 
 ## [1.0.0] - 2026-11-05
 
