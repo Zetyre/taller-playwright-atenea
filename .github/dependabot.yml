@@ -4,6 +4,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      lint:
+        patterns: ['eslint', '@eslint/*', 'typescript-eslint', 'eslint-*', 'prettier']
+    ignore:
+      # typescript-eslint does not support TypeScript 7 yet; revisit when its peer range allows it.
+      - dependency-name: typescript
+        versions: ['>=6.1.0']
   - package-ecosystem: github-actions
     directory: /
     schedule:

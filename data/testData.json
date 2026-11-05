@@ -1,8 +1,8 @@
 {
-"usuarioValido": {
-    "firstName": "Cristian",
-    "lastName": "Marrero",
-    "email": "cristianmarrero01@example.com",
+  "validUser": {
+    "firstName": "QA",
+    "lastName": "Tester",
+    "email": "qa.tester@example.com",
     "password": "Password123!"
-    }
+  }
 }

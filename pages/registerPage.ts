@@ -1,42 +1,39 @@
-import {Page, Locator} from '@playwright/test';
-import { frontendUrl } from '../utils/urls';
+import { expect, type Locator, type Page } from '@playwright/test';
+import type { NewUser } from '../types/api';
 
 export class RegisterPage {
-    readonly page: Page;
-    readonly firstNameInput: Locator;
-    readonly lastNameInput: Locator;
-    readonly emailInput: Locator;
-    readonly passwordInput: Locator;
-    readonly registerButton: Locator;
-    readonly loginButton: Locator;  
+  readonly title: Locator;
+  readonly firstNameInput: Locator;
+  readonly lastNameInput: Locator;
+  readonly emailInput: Locator;
+  readonly passwordInput: Locator;
+  readonly registerButton: Locator;
+  readonly headerLoginButton: Locator;
 
-    constructor(page: Page) {
-        this.page = page;
-        this.firstNameInput = page.locator('input[name=firstName]');
-        this.lastNameInput = page.locator('input[name=lastName]');
-        this.emailInput = page.locator('input[name=email]');
-        this.passwordInput = page.locator('input[name=password]');
-        this.registerButton = page.getByTestId('boton-registrarse');
-        this.loginButton = page.getByTestId('boton-login-header-signup');
-    }
-    async visitRegisterPage() {
-        await this.page.goto(frontendUrl('/'));
-        await this.page.waitForLoadState('networkidle');
-    }
+  constructor(readonly page: Page) {
+    this.title = page.getByTestId('titulo-registro');
+    this.firstNameInput = page.getByLabel('Nombre');
+    this.lastNameInput = page.getByLabel('Apellido');
+    this.emailInput = page.getByLabel('Correo electrónico');
+    this.passwordInput = page.getByLabel('Contraseña');
+    this.registerButton = page.getByTestId('boton-registrarse');
+    this.headerLoginButton = page.getByTestId('boton-login-header-signup');
+  }
 
+  async goto(): Promise<void> {
+    await this.page.goto('/signup');
+    await expect(this.title).toBeVisible();
+  }
 
-   async fillRegistrationForm(usuario: { firstName: string; lastName: string; email: string; password: string }) {
-        await this.firstNameInput.fill(usuario.firstName);
-        await this.lastNameInput.fill(usuario.lastName);
-        await this.emailInput.fill(usuario.email);
-        await this.passwordInput.fill(usuario.password);
-   }
-    async clickRegisterButton() {
-        await this.registerButton.click();
-    }
+  async fillForm(user: NewUser): Promise<void> {
+    await this.firstNameInput.fill(user.firstName);
+    await this.lastNameInput.fill(user.lastName);
+    await this.emailInput.fill(user.email);
+    await this.passwordInput.fill(user.password);
+  }
 
-    async completeRegistration(usuario: { firstName: string; lastName: string; email: string; password: string }) {
-        await this.fillRegistrationForm(usuario);
-        await this.clickRegisterButton();
-    }
+  async register(user: NewUser): Promise<void> {
+    await this.fillForm(user);
+    await this.registerButton.click();
+  }
 }

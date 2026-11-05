@@ -1,0 +1,6 @@
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+redux-athena-bank/
+package-lock.json

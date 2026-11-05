@@ -1,80 +1,48 @@
 import { defineConfig, devices } from '@playwright/test';
 import { frontendBaseUrl } from './utils/urls';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+const isCI = !!process.env.CI;
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
   testDir: './tests',
-  /* Run tests in files in parallel */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 1,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  forbidOnly: isCI,
+  // One retry on CI surfaces flaky tests as "flaky" in the report without hiding real failures.
+  // No retries locally: a failure while developing should be a failure.
+  retries: isCI ? 1 : 0,
+  // Every test creates its own users, so the suite is safe to run in parallel.
+  // Locally the cap is 30% of cores: more than ~6 concurrent Firefox instances on a Windows dev machine
+  // starts crashing Firefox's software compositor. CI runs one browser per job, so it keeps the default.
+  workers: isCI ? undefined : '30%',
+  // On CI each browser runs in its own job and writes a blob report; a later job merges them into one HTML report.
+  reporter: isCI ? [['github'], ['list'], ['blob']] : [['list'], ['html', { open: 'never' }]],
+  expect: {
+    timeout: 10_000,
+  },
   use: {
     baseURL: frontendBaseUrl,
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
-
-  /* Configure projects for major browsers */
   projects: [
     {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
+      name: 'api',
+      testDir: './tests/api',
     },
     {
       name: 'chromium',
+      testDir: './tests/ui',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
     },
-
     {
       name: 'firefox',
+      testDir: './tests/ui',
       use: { ...devices['Desktop Firefox'] },
-      dependencies: ['setup'],
     },
-
     {
       name: 'webkit',
+      testDir: './tests/ui',
       use: { ...devices['Desktop Safari'] },
-      dependencies: ['setup'],
     },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ],
-
 });
