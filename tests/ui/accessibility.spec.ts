@@ -63,11 +63,16 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
       const user = await createUser({ initialBalance: null });
       await loginPage.goto();
 
+      // What is under test is focus order and submitting with Enter, not typing speed. Each value goes in as one
+      // input event (like pasting): typing key by key can drop a character when the animated background keeps the
+      // browser busy, because the form re-renders its state on every keystroke.
       await loginPage.emailInput.focus();
-      await page.keyboard.type(user.email);
+      await page.keyboard.insertText(user.email);
       await page.keyboard.press('Tab');
       await expect(loginPage.passwordInput).toBeFocused();
-      await page.keyboard.type(user.password);
+      await page.keyboard.insertText(user.password);
+      await expect(loginPage.emailInput).toHaveValue(user.email);
+      await expect(loginPage.passwordInput).toHaveValue(user.password);
       await page.keyboard.press('Enter');
 
       await expect(page).toHaveURL(/\/dashboard$/);
