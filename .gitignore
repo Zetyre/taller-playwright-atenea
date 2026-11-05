@@ -9,3 +9,6 @@ node_modules/
 redux-athena-bank/
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+/all-blob-reports/
+results.json
+app/
