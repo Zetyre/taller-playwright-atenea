@@ -91,7 +91,8 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
     test(
       'TC-047: "Agregar cuenta" can be reached with Tab and opened with Enter',
       knownBug(
-        'App defect (WCAG 2.1.1, 4.1.2): the "Agregar cuenta" tile is a <div> with an onClick handler and no ' +
+        'Zetyre/redux-athena-bank#5. ' +
+          'App defect (WCAG 2.1.1, 4.1.2): the "Agregar cuenta" tile is a <div> with an onClick handler and no ' +
           'tabindex or role, so keyboard and screen reader users cannot open a new account.',
       ),
       async ({ page, createUser, loginAs, createAccountModal }) => {
@@ -136,7 +137,8 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
     test(
       'TC-043: The "¿Ya tienes cuenta? Iniciar sesión" prompt on the sign-up page is visible',
       knownBug(
-        'App defect (WCAG 1.4.3, 2.4.7): in SignUp.tsx the prompt sits outside the form card and below the fixed ' +
+        'Zetyre/redux-athena-bank#3. ' +
+          'App defect (WCAG 1.4.3, 2.4.7): in SignUp.tsx the prompt sits outside the form card and below the fixed ' +
           'particle canvas (z-index 0), so it is never painted. The link still receives focus and clicks, unseen. ' +
           'It also pushes the page 30px wider than a 320px viewport (WCAG 1.4.10).',
       ),
@@ -152,7 +154,8 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
     test(
       'TC-044: Text on the login and sign-up pages meets the contrast minimum',
       knownBug(
-        'App defect (WCAG 1.4.3): white button text on the blue-to-cyan gradient drops to about 2.4:1 over the cyan ' +
+        'Zetyre/redux-athena-bank#4. ' +
+          'App defect (WCAG 1.4.3): white button text on the blue-to-cyan gradient drops to about 2.4:1 over the cyan ' +
           'end, and the label of a focused field is MUI default blue #1976d2 on a dark card (about 3.7:1).',
       ),
       async ({ page, loginPage, registerPage, createUser }) => {
@@ -174,7 +177,8 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
     test(
       'TC-045: Text on the dashboard meets the contrast minimum',
       knownBug(
-        'App defect (WCAG 1.4.3): on the teal account card the account type (#a6b1e1) is about 1.7:1 and the ' +
+        'Zetyre/redux-athena-bank#4. ' +
+          'App defect (WCAG 1.4.3): on the teal account card the account type (#a6b1e1) is about 1.7:1 and the ' +
           'balance about 3.5:1; "Agregar fondos" drops to about 1.7:1 over the cyan end of its gradient; ' +
           'transaction rows use #2e7d32 green (incoming) and #d32f2f red (outgoing) on a dark card (about 3.5:1).',
       ),
@@ -204,7 +208,8 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
     test(
       'TC-048: The page language is declared as Spanish',
       knownBug(
-        'App defect (WCAG 3.1.1): index.html declares <html lang="en"> but the whole interface is in Spanish, so ' +
+        'Zetyre/redux-athena-bank#6. ' +
+          'App defect (WCAG 3.1.1): index.html declares <html lang="en"> but the whole interface is in Spanish, so ' +
           'screen readers read it with English pronunciation.',
       ),
       async ({ page, loginPage }) => {
@@ -218,7 +223,8 @@ test.describe('Accessibility (WCAG 2.2 AA)', () => {
     test(
       'TC-049: Each page has its own descriptive title',
       knownBug(
-        'App defect (WCAG 2.4.2): every page keeps the Vite template title "Vite + React + TS", so tabs, history ' +
+        'Zetyre/redux-athena-bank#7. ' +
+          'App defect (WCAG 2.4.2): every page keeps the Vite template title "Vite + React + TS", so tabs, history ' +
           'and screen readers cannot tell the pages apart.',
       ),
       async ({ page, loginPage, registerPage, createUser, loginAs }) => {
