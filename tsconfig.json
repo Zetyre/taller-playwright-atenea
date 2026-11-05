@@ -17,6 +17,7 @@
     "tests/**/*.ts",
     "fixtures/**/*.ts",
     "types/**/*.ts",
-    "utils/**/*.ts"
+    "utils/**/*.ts",
+    "reporters/**/*.ts"
   ]
 }
