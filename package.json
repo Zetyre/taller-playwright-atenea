@@ -1,6 +1,6 @@
 {
   "name": "athena-bank-playwright-tests",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "E2E and API test automation for the Athena Bank demo app with Playwright and TypeScript",
   "author": "Cristian Marrero",
