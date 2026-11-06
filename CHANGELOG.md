@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-06
+
+Accessibility coverage, documented defects and a reporter that keeps known bugs apart from real passes.
+51 test cases, 67 tests, 157 executions.
+
 ### Added
 
 - Accessibility audit (TC-037 to TC-051): axe-core scans against WCAG 2.2 A and AA for the login, sign-up and
@@ -25,6 +30,10 @@ All notable changes to this project are documented here. The format follows
   one it declares. `utils/knownBug.ts` provides `knownBug()`, which every known-bug test, TC-036 included, now
   uses to declare its issue and expected failure.
 - The CI job summary counts known defects (expected failures) apart from passed tests.
+
+### Changed
+
+- README: motivation, local setup, tooling, design notes and the list of known defects with screenshots.
 
 ## [1.0.0] - 2026-11-05
 
@@ -51,3 +60,7 @@ First stable version of the framework.
 
 - Parallel runs no longer race on shared sender and receiver accounts.
 - The Pages archive now prunes old reports and also publishes failed runs.
+
+[Unreleased]: https://github.com/Zetyre/athena-bank-playwright-tests/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Zetyre/athena-bank-playwright-tests/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/Zetyre/athena-bank-playwright-tests/releases/tag/v1.0.0
